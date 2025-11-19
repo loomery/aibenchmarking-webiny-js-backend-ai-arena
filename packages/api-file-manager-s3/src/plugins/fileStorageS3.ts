@@ -8,6 +8,13 @@ import type { PresignedPostPayloadData } from "~/types.js";
 
 const S3_BUCKET = process.env.S3_BUCKET;
 
+const sanitizeKey = (key: string): string => {
+    if (!key) {
+        return "";
+    }
+    return key.startsWith("/") ? key.slice(1) : key;
+};
+
 export default () => {
     /**
      * We need to extend the type for FilePhysicalStoragePlugin.
@@ -46,7 +53,24 @@ export default () => {
 
                     await s3.deleteObject({
                         Bucket: S3_BUCKET,
-                        Key: key
+                        Key: sanitizeKey(key)
+                    });
+                },
+                copy: async params => {
+                    const { sourceKey, targetKey } = params;
+
+                    if (!S3_BUCKET) {
+                        throw new Error("Missing S3 bucket environment variable.");
+                    }
+
+                    const s3 = new S3();
+                    const sanitizedSource = sanitizeKey(sourceKey);
+                    const sanitizedTarget = sanitizeKey(targetKey);
+
+                    await s3.copyObject({
+                        Bucket: S3_BUCKET,
+                        Key: sanitizedTarget,
+                        CopySource: encodeURIComponent(`${S3_BUCKET}/${sanitizedSource}`)
                     });
                 }
             })

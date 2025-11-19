@@ -68,6 +68,11 @@ export const createFilesSchema = (params: CreateFilesTypeDefsParams) => {
                         return context.fileManager.createFilesInBatch(args.data, args.meta);
                     });
                 },
+                async copyFiles(_, args: any, context) {
+                    return resolve(() => {
+                        return context.fileManager.copyFiles(args.data);
+                    });
+                },
                 async updateFile(_, args: any, context) {
                     return resolve(() => {
                         return context.fileManager.updateFile(args.id, args.data);

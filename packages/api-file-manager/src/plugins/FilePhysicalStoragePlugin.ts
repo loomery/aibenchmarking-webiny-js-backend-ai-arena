@@ -2,12 +2,19 @@ import { Plugin } from "@webiny/plugins";
 import WebinyError from "@webiny/error";
 import type { FileManagerSettings } from "~/types.js";
 
+export interface FilePhysicalStoragePluginCopyParams {
+    sourceKey: string;
+    targetKey: string;
+}
+
 export interface FilePhysicalStoragePluginParams<
     U extends FilePhysicalStoragePluginUploadParams,
-    D extends FilePhysicalStoragePluginDeleteParams
+    D extends FilePhysicalStoragePluginDeleteParams,
+    C extends FilePhysicalStoragePluginCopyParams
 > {
     upload: (args: U) => Promise<any>;
     delete: (args: D) => Promise<void>;
+    copy?: (args: C) => Promise<any>;
 }
 
 export interface FilePhysicalStoragePluginUploadParams {
@@ -21,12 +28,13 @@ export interface FilePhysicalStoragePluginDeleteParams {
 
 export class FilePhysicalStoragePlugin<
     U extends FilePhysicalStoragePluginUploadParams = FilePhysicalStoragePluginUploadParams,
-    D extends FilePhysicalStoragePluginDeleteParams = FilePhysicalStoragePluginDeleteParams
+    D extends FilePhysicalStoragePluginDeleteParams = FilePhysicalStoragePluginDeleteParams,
+    C extends FilePhysicalStoragePluginCopyParams = FilePhysicalStoragePluginCopyParams
 > extends Plugin {
     public static override readonly type: string = "api-file-manager-storage";
-    private readonly _params: FilePhysicalStoragePluginParams<U, D>;
+    private readonly _params: FilePhysicalStoragePluginParams<U, D, C>;
 
-    public constructor(params: FilePhysicalStoragePluginParams<U, D>) {
+    public constructor(params: FilePhysicalStoragePluginParams<U, D, C>) {
         super();
         this._params = params;
     }
@@ -49,5 +57,15 @@ export class FilePhysicalStoragePlugin<
             );
         }
         return this._params.delete(params);
+    }
+
+    public async copy(params: C): Promise<any> {
+        if (!this._params.copy) {
+            throw new WebinyError(
+                `You must define the "copy" method of this plugin.`,
+                "COPY_METHOD_ERROR"
+            );
+        }
+        return this._params.copy(params);
     }
 }

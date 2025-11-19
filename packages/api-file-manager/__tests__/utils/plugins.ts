@@ -62,7 +62,9 @@ export const handlerPlugins = (params: HandlerParams) => {
         new FilePhysicalStoragePlugin({
             upload: async () => {},
 
-            delete: async () => {}
+            delete: async () => {},
+
+            copy: async () => {}
         }),
         /**
          * Make sure we dont have undefined plugins value.

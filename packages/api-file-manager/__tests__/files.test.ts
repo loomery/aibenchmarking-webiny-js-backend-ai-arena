@@ -3,9 +3,11 @@ import { mdbid } from "@webiny/utils";
 import useGqlHandler from "~tests/utils/useGqlHandler";
 import testFiles from "./data";
 import { ids, fileDData, fileCData, fileBData, fileAData } from "./mocks/files";
+import { ROOT_FOLDER } from "~/contants";
 
 describe("Files CRUD test", { timeout: 100_000, retry: 3 }, () => {
-    const { createFile, updateFile, createFiles, getFile, listFiles, listTags } = useGqlHandler();
+    const { createFile, updateFile, createFiles, getFile, listFiles, listTags, copyFiles } =
+        useGqlHandler();
 
     beforeAll(() => {
         testFiles.forEach(file => {
@@ -142,6 +144,60 @@ describe("Files CRUD test", { timeout: 100_000, retry: 3 }, () => {
                 }
             }
         });
+    });
+
+    it("should copy files and allow overriding the destination folder", async () => {
+        await createFiles({
+            data: [fileAData, fileBData]
+        });
+
+        const [copyResponse] = await copyFiles(
+            {
+                data: [
+                    {
+                        id: ids.A
+                    },
+                    {
+                        id: ids.B,
+                        location: {
+                            folderId: "folder-123"
+                        }
+                    }
+                ]
+            },
+            ["location { folderId }", "meta { originalKey }"]
+        );
+
+        expect(copyResponse).toEqual({
+            data: {
+                fileManager: {
+                    copyFiles: {
+                        data: expect.any(Array),
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const copiedFiles = copyResponse.data.fileManager.copyFiles.data;
+        expect(copiedFiles).toHaveLength(2);
+
+        const copiedA = copiedFiles[0];
+        const copiedB = copiedFiles[1];
+
+        expect(copiedA.id).not.toBe(ids.A);
+        expect(copiedA.name).toBe(fileAData.name);
+        expect(copiedA.tags).toEqual(fileAData.tags);
+        expect(copiedA.location.folderId).toBe(ROOT_FOLDER);
+        expect(copiedA.meta.originalKey).toBe(fileAData.key);
+        const originalFileAName = fileAData.key.split("/").pop();
+        expect(copiedA.key).not.toBe(fileAData.key);
+        expect(copiedA.key.endsWith(originalFileAName as string)).toBe(true);
+
+        expect(copiedB.id).not.toBe(ids.B);
+        expect(copiedB.tags).toEqual(fileBData.tags);
+        expect(copiedB.location.folderId).toBe("folder-123");
+        expect(copiedB.meta.originalKey).toBe(fileBData.key);
     });
 
     test("should create files in bulk and paginate using cursor", async () => {

@@ -53,6 +53,17 @@ export interface FileInput {
     tags: string[];
     aliases: string[];
     extensions?: Record<string, any>;
+
+    [key: string]: any;
+}
+
+export interface FileCopyInputLocation {
+    folderId?: string;
+}
+
+export interface FileCopyInput {
+    id: string;
+    location?: FileCopyInputLocation;
 }
 
 export interface FileListWhereParams {
@@ -99,6 +110,7 @@ export interface FilesCRUD extends FileLifecycleEvents {
     updateFile(id: string, data: Partial<FileInput>): Promise<File>;
     deleteFile(id: string): Promise<boolean>;
     createFilesInBatch(data: FileInput[], meta?: Record<string, any>): Promise<File[]>;
+    copyFiles(data: FileCopyInput[]): Promise<File[]>;
 }
 
 export interface FileManagerSettings {

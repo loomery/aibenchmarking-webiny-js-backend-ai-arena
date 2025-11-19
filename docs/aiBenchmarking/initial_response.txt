@@ -1,0 +1,30 @@
+Task Understanding
+Implement a copyFiles capability in the File Manager GraphQL API so clients can duplicate one or more files (including their binary objects) and optionally place the copies in another folder.
+The flow must follow the existing architecture: GraphQL (FmMutation) → context.fileManager.copyFiles → CRUD/service layer → storage operations + physical storage plugin.
+Assumption: copying should create new file IDs/keys and replicate the underlying stored object (not just metadata). If this is incorrect, please let me know.
+Relevant Components
+packages/api-file-manager/src/graphql/createFilesTypeDefs.ts, graphql/filesSchema.ts: define GraphQL schema/resolvers for File Manager mutations.
+packages/api-file-manager/src/createFileManager/files.crud.ts (+ types.ts, createFileManager/index.ts): business logic and permissions for file operations.
+packages/api-file-manager/src/storage/FileStorage.ts and plugins/FilePhysicalStoragePlugin.ts: abstraction over physical storage; will need a copy operation and plugin contract updates.
+packages/api-file-manager-s3/src/plugins/fileStorageS3.ts: S3 implementation of the physical storage plugin that must know how to copy objects.
+Tests under packages/api-file-manager/__tests__ (GraphQL helpers + handler plugins) to validate the new mutation and contract.
+Implementation Steps
+Schema & API Design
+Extend the GQL SDL with FmCopyFileInput, FmCopyFilesResponse, and copyFiles mutation (accepting file IDs array + optional target folder).
+Update resolver map in graphql/filesSchema.ts to call a new context.fileManager.copyFiles method and wrap responses in ListResponse or Response as appropriate.
+CRUD & Type Layer
+Update FilesCRUD interface in types.ts and createFileManager/files.crud.ts to expose a copyFiles method (including lifecycle topics if necessary).
+Ensure the new method enforces permissions, fetches originals (respecting ownership), generates new IDs/keys (likely via mdbid), allows overriding folder IDs per request/batch, and persists the new entries via storage operations.
+Physical Storage Copy Support
+Enhance FileStorage to provide a copyObject (or similar) helper that invokes a new optional copy method on FilePhysicalStoragePlugin; default to erroring if unsupported to avoid silent corruption.
+Extend FilePhysicalStoragePlugin typings/constructor to accept the copy callback and expose it.
+Implement copy in the S3 plugin using CopyObjectCommand so binaries are duplicated when keys change.
+Wire Copy Logic
+Inside the copyFiles CRUD method, coordinate DB + physical copy: compute target key, invoke storage copy, then call createFile/storage operations to persist metadata (with updated folderId, timestamps, metadata, etc.).
+Ensure batch operations return the new File objects in request order and handle partial failures with meaningful errors.
+Testing & Tooling Updates
+Expand GraphQL helper files to include the new mutation and update useGqlHandler to expose a copyFiles invoker.
+Update the test-only FilePhysicalStoragePlugin mock to stub the new copy method (even if it’s a no-op).
+Add unit/integration tests (likely in files.test.ts or a new spec) covering: copying multiple files, copying into another folder, and ensuring metadata (name, tags, aliases) and binary key behavior are correct.
+Self-Review & Verification
+Run relevant tests (file manager suite) to confirm no regressions, ensure TypeScript builds, and double-check that error handling and permissions align with existing conventions.

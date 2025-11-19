@@ -115,6 +115,11 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             ${inputUpdateFields.map(f => f.fields).join("\n")}
         }
 
+        input FmCopyFileInput {
+            id: ID!
+            location: FmFile_LocationInput
+        }
+
         type FmFileResponse {
             data: FmFile
             error: FmError
@@ -156,6 +161,11 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             data: [FmFile!]
             error: FmError
         }
+
+        type FmCopyFilesResponse {
+            data: [FmFile!]
+            error: FmError
+        }
         
         type FmFileModelResponse {
             data: JSON
@@ -180,6 +190,7 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             createFiles(data: [FmFileCreateInput!]!): FmCreateFilesResponse!
             updateFile(id: ID!, data: FmFileUpdateInput!): FmFileResponse!
             deleteFile(id: ID!): FmBooleanResponse!
+            copyFiles(data: [FmCopyFileInput!]!): FmCopyFilesResponse!
         }
     `;
 };

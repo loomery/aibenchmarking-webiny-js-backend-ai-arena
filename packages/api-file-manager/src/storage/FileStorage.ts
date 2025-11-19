@@ -1,6 +1,9 @@
 import type { FileManagerContext } from "~/types.js";
 import WebinyError from "@webiny/error";
-import type { FilePhysicalStoragePlugin } from "~/plugins/FilePhysicalStoragePlugin.js";
+import type {
+    FilePhysicalStoragePlugin,
+    FilePhysicalStoragePluginCopyParams
+} from "~/plugins/FilePhysicalStoragePlugin.js";
 
 export type Result = Record<string, any>;
 
@@ -21,6 +24,8 @@ export interface FileStorageDeleteParams {
     id: string;
     key: string;
 }
+
+export interface FileStorageCopyParams extends FilePhysicalStoragePluginCopyParams {}
 
 export interface FileStorageUploadMultipleParams {
     files: FileStorageUploadParams[];
@@ -110,5 +115,17 @@ export class FileStorage {
 
         // Delete file from the DB.
         return await fileManager.deleteFile(id);
+    }
+
+    async copy(params: FileStorageCopyParams) {
+        if (typeof this.storagePlugin.copy !== "function") {
+            throw new WebinyError(
+                `The current storage plugin does not implement the "copy" method.`,
+                "STORAGE_COPY_NOT_SUPPORTED",
+                params
+            );
+        }
+
+        return this.storagePlugin.copy(params);
     }
 }

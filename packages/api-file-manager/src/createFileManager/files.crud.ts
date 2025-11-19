@@ -1,8 +1,10 @@
 import { NotFoundError } from "@webiny/handler-graphql";
 import { createTopic } from "@webiny/pubsub";
 import WebinyError from "@webiny/error";
+import { mdbid } from "@webiny/utils";
 import type {
     File,
+    FileCopyInput,
     FileManagerFilesStorageOperationsListParamsWhere,
     FileManagerFilesStorageOperationsTagsParamsWhere,
     FilesCRUD,
@@ -15,6 +17,29 @@ import { getIdentity as utilsGetIdentity } from "@webiny/api-headless-cms/utils/
 import type { CmsEntryListSort } from "@webiny/api-headless-cms/types/index.js";
 import { NotAuthorizedError } from "@webiny/api-core/features/security/shared/index.js";
 
+const deriveCopyKey = (originalKey: string, originalId: string, newId: string): string => {
+    if (!originalKey) {
+        return `${newId}`;
+    }
+
+    const segments = originalKey.split("/").filter(Boolean);
+    const fileName = segments.pop() || originalKey;
+
+    if (segments.length > 0) {
+        const lastIndex = segments.length - 1;
+        if (segments[lastIndex] === originalId) {
+            segments[lastIndex] = newId;
+        } else {
+            segments.push(newId);
+        }
+    } else {
+        segments.push(newId);
+    }
+
+    segments.push(fileName);
+    return segments.join("/");
+};
+
 export const createFilesCrud = (
     config: Pick<
         FileManagerConfig,
@@ -24,6 +49,7 @@ export const createFilesCrud = (
         | "getTenantId"
         | "getIdentity"
         | "WEBINY_VERSION"
+        | "storage"
     >
 ): FilesCRUD => {
     const {
@@ -32,7 +58,8 @@ export const createFilesCrud = (
         getLocaleCode,
         getTenantId,
         getIdentity,
-        WEBINY_VERSION
+        WEBINY_VERSION,
+        storage
     } = config;
 
     return {
@@ -283,6 +310,82 @@ export const createFilesCrud = (
                     {
                         ...(ex.data || {}),
                         files
+                    }
+                );
+            }
+        },
+        async copyFiles(inputs: FileCopyInput[]) {
+            await filesPermissions.ensure({ rwd: "w" });
+
+            const data = Array.isArray(inputs) ? inputs : [];
+            if (!data.length) {
+                return [];
+            }
+
+            try {
+                const copies: File[] = [];
+                for (const input of data) {
+                    if (!input?.id) {
+                        throw new WebinyError(
+                            "Missing file id in copyFiles input.",
+                            "COPY_FILE_INPUT_ERROR",
+                            {
+                                input
+                            }
+                        );
+                    }
+
+                    const original = await this.getFile(input.id);
+                    const newId = mdbid();
+                    const key = deriveCopyKey(original.key, original.id, newId);
+
+                    await storage.copy({
+                        sourceKey: original.key,
+                        targetKey: key
+                    });
+
+                    const newFile = await this.createFile(
+                        {
+                            id: newId,
+                            key,
+                            name: original.name,
+                            size: original.size,
+                            type: original.type,
+                            meta: {
+                                ...(original.meta || {}),
+                                originalKey: original.meta?.originalKey || original.key
+                            },
+                            location: {
+                                folderId:
+                                    input.location?.folderId ??
+                                    original.location?.folderId ??
+                                    ROOT_FOLDER
+                            },
+                            tags: Array.isArray(original.tags) ? [...original.tags] : [],
+                            aliases: [],
+                            extensions: original.extensions
+                                ? { ...original.extensions }
+                                : undefined,
+                            accessControl: original.accessControl
+                                ? { ...original.accessControl }
+                                : undefined
+                        },
+                        {
+                            copiedFrom: original.id
+                        }
+                    );
+
+                    copies.push(newFile);
+                }
+
+                return copies;
+            } catch (ex) {
+                throw new WebinyError(
+                    ex.message || "Could not copy files.",
+                    ex.code || "COPY_FILES_ERROR",
+                    {
+                        ...(ex.data || {}),
+                        inputs
                     }
                 );
             }
