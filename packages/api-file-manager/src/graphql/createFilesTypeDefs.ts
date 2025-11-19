@@ -180,6 +180,7 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             createFiles(data: [FmFileCreateInput!]!): FmCreateFilesResponse!
             updateFile(id: ID!, data: FmFileUpdateInput!): FmFileResponse!
             deleteFile(id: ID!): FmBooleanResponse!
+            copyFiles(ids: [ID!]!, targetFolderId: String): FmCreateFilesResponse!
         }
     `;
 };

@@ -1,0 +1,58 @@
+Claude’s Plan
+Task Understanding
+Implement backend functionality to copy multiple files in the File Manager, with support for copying to a different folder. This is a GraphQL API-only change (no frontend).
+Architecture Context
+The File Manager uses:
+GraphQL API layer for mutations/queries
+CRUD layer (files.crud.ts) for business logic
+CMS Storage layer for database operations
+S3 Storage for physical file storage
+Permission system for authorization (read/write/delete + ownership checks)
+Implementation Plan
+1. Add GraphQL Schema Definition
+File: packages/api-file-manager/src/graphql/createFilesTypeDefs.ts
+Add copyFiles mutation accepting ids: [ID!]! and optional targetFolderId: String
+Return type: FmCreateFilesResponse! (same as createFiles for consistency)
+2. Add GraphQL Resolver
+File: packages/api-file-manager/src/graphql/filesSchema.ts
+Implement copyFiles resolver in FmMutation
+Delegate to context.fileManager.copyFiles()
+Follow existing resolver patterns (error handling via resolve() wrapper)
+3. Update TypeScript Interfaces
+File: packages/api-file-manager/src/types.ts
+Add copyFiles method signature to FilesCRUD interface
+4. Implement Business Logic
+File: packages/api-file-manager/src/createFileManager/files.crud.ts
+Add copyFiles(ids: string[], targetFolderId?: string) method
+Steps:
+Check write permissions (filesPermissions.ensure({ rwd: "w" }))
+Fetch all source files by IDs
+Verify ownership for each file
+Generate new file metadata (new IDs, update keys, update folderId if provided)
+Copy physical files in S3 (reuse existing patterns from api-file-manager-s3)
+Create new file records via createFilesInBatch() to leverage existing hooks
+Return created files
+5. Handle S3 Physical Copy
+Approach: Use existing S3 copy patterns from the codebase
+Generate new S3 keys for copied files (format: {newId}/{filename})
+Use S3 CopyObject API via AWS SDK
+Handle multipart copy for large files if needed
+Copy metadata files (.metadata files in S3)
+Key Design Decisions
+Reuse createFilesInBatch(): Instead of duplicating logic, call existing batch creation after preparing copied file data
+New IDs: Generate fresh UUIDs for copied files (they are new entities)
+Preserve metadata: Copy all file properties (tags, aliases, meta) except audit fields
+Update audit fields: Set new createdOn, createdBy, etc. for copied files
+Default folder: If targetFolderId not provided, use source file's location.folderId
+Permission model: Require write permission + ownership of source files
+Files to Modify
+packages/api-file-manager/src/graphql/createFilesTypeDefs.ts
+packages/api-file-manager/src/graphql/filesSchema.ts
+packages/api-file-manager/src/types.ts
+packages/api-file-manager/src/createFileManager/files.crud.ts
+Verification Strategy
+Check TypeScript compilation
+Verify GraphQL schema validity
+Review permission checks match existing patterns
+Ensure S3 copy logic handles edge cases (large files, metadata)
+Validate folder hierarchy is preserved/updated correctly

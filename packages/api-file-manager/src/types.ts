@@ -99,6 +99,7 @@ export interface FilesCRUD extends FileLifecycleEvents {
     updateFile(id: string, data: Partial<FileInput>): Promise<File>;
     deleteFile(id: string): Promise<boolean>;
     createFilesInBatch(data: FileInput[], meta?: Record<string, any>): Promise<File[]>;
+    copyFiles(ids: string[], targetFolderId?: string): Promise<File[]>;
 }
 
 export interface FileManagerSettings {

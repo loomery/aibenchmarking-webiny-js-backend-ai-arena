@@ -14,6 +14,7 @@ import { getDate } from "@webiny/api-headless-cms/utils/date.js";
 import { getIdentity as utilsGetIdentity } from "@webiny/api-headless-cms/utils/identity.js";
 import type { CmsEntryListSort } from "@webiny/api-headless-cms/types/index.js";
 import { NotAuthorizedError } from "@webiny/api-core/features/security/shared/index.js";
+import { mdbid } from "@webiny/utils/mdbid.js";
 
 export const createFilesCrud = (
     config: Pick<
@@ -283,6 +284,105 @@ export const createFilesCrud = (
                     {
                         ...(ex.data || {}),
                         files
+                    }
+                );
+            }
+        },
+        async copyFiles(ids, targetFolderId) {
+            await filesPermissions.ensure({ rwd: "w" });
+
+            // Fetch all source files
+            const sourceFiles = await Promise.all(
+                ids.map(async id => {
+                    const file = await storageOperations.files.get({
+                        where: {
+                            id,
+                            tenant: getTenantId(),
+                            locale: getLocaleCode()
+                        }
+                    });
+
+                    if (!file) {
+                        throw new NotFoundError(`File with id "${id}" does not exist.`);
+                    }
+
+                    return file;
+                })
+            );
+
+            // Check ownership for all source files
+            for (const file of sourceFiles) {
+                await filesPermissions.ensure({ owns: file.createdBy });
+            }
+
+            const tenant = getTenantId();
+            const locale = getLocaleCode();
+            const currentIdentity = getIdentity();
+            const currentDateTime = new Date();
+
+            // Prepare copied file data with new IDs and keys
+            const copiedFilesData = sourceFiles.map(sourceFile => {
+                const newId = mdbid();
+                const fileNameFromKey = sourceFile.key.split("/").pop() || sourceFile.name;
+
+                return {
+                    id: newId,
+                    key: `${newId}/${fileNameFromKey}`,
+                    name: sourceFile.name,
+                    size: sourceFile.size,
+                    type: sourceFile.type,
+                    meta: { ...sourceFile.meta },
+                    location: {
+                        folderId: targetFolderId ?? sourceFile.location.folderId
+                    },
+                    tags: [...sourceFile.tags],
+                    aliases: [],
+                    sourceKey: sourceFile.key
+                };
+            });
+
+            try {
+                // Create new file records in batch
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const files: File[] = copiedFilesData.map(({ sourceKey, ...data }) => {
+                    return {
+                        ...data,
+                        createdOn: getDate(currentDateTime),
+                        modifiedOn: null,
+                        savedOn: getDate(currentDateTime),
+                        createdBy: utilsGetIdentity(currentIdentity)!,
+                        modifiedBy: null,
+                        savedBy: utilsGetIdentity(currentIdentity)!,
+                        tenant,
+                        locale,
+                        webinyVersion: WEBINY_VERSION
+                    };
+                });
+
+                // Create a map of new file keys to their source keys for S3 copy operations
+                const sourceKeyMap = new Map(
+                    copiedFilesData.map((data, index) => [files[index].key, data.sourceKey])
+                );
+
+                await this.onFileBeforeBatchCreate.publish({
+                    files,
+                    meta: { operation: "copy", sourceKeyMap }
+                });
+                const results = await storageOperations.files.createBatch({
+                    files
+                });
+                await this.onFileAfterBatchCreate.publish({
+                    files,
+                    meta: { operation: "copy", sourceKeyMap }
+                });
+                return results;
+            } catch (ex) {
+                throw new WebinyError(
+                    ex.message || "Could not copy files.",
+                    ex.code || "COPY_FILES_ERROR",
+                    {
+                        ...(ex.data || {}),
+                        ids
                     }
                 );
             }
