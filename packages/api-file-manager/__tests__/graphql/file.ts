@@ -125,3 +125,14 @@ export const LIST_TAGS = /* GraphQL */ `
         }
     }
 `;
+
+export const COPY_FILES = /* GraphQL */ `
+    mutation CopyFiles($data: FmCopyFilesInput!) {
+        fileManager {
+            copyFiles(data: $data) {
+                data
+                error ${ERROR_FIELD}
+            }
+        }
+    }
+`;

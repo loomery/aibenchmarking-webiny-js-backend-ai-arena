@@ -6,7 +6,8 @@ import type {
     FileManagerFilesStorageOperationsListParamsWhere,
     FileManagerFilesStorageOperationsTagsParamsWhere,
     FilesCRUD,
-    FilesListOpts
+    FilesListOpts,
+    FmCopyFilesInput
 } from "~/types.js";
 import type { FileManagerConfig } from "~/createFileManager/types.js";
 import { ROOT_FOLDER } from "~/contants.js";
@@ -14,6 +15,32 @@ import { getDate } from "@webiny/api-headless-cms/utils/date.js";
 import { getIdentity as utilsGetIdentity } from "@webiny/api-headless-cms/utils/identity.js";
 import type { CmsEntryListSort } from "@webiny/api-headless-cms/types/index.js";
 import { NotAuthorizedError } from "@webiny/api-core/features/security/shared/index.js";
+
+const generateUniqueFileName = async (
+    originalName: string,
+    folderId: string,
+    listMethod: FilesCRUD["listFiles"]
+): Promise<string> => {
+    let newFileName = originalName;
+    let counter = 1;
+    const [nameWithoutExtension, extension] = originalName.split(/\.(?=[^.]+$)/);
+
+    while (true) {
+        const [existingFiles] = await listMethod({
+            where: {
+                name: newFileName,
+                "location.folderId": folderId
+            }
+        });
+
+        if (existingFiles.length === 0) {
+            return newFileName;
+        }
+
+        newFileName = `${nameWithoutExtension} (${counter})${extension ? `.${extension}` : ""}`;
+        counter++;
+    }
+};
 
 export const createFilesCrud = (
     config: Pick<
@@ -24,6 +51,7 @@ export const createFilesCrud = (
         | "getTenantId"
         | "getIdentity"
         | "WEBINY_VERSION"
+        | "storage"
     >
 ): FilesCRUD => {
     const {
@@ -32,7 +60,8 @@ export const createFilesCrud = (
         getLocaleCode,
         getTenantId,
         getIdentity,
-        WEBINY_VERSION
+        WEBINY_VERSION,
+        storage
     } = config;
 
     return {
@@ -363,6 +392,83 @@ export const createFilesCrud = (
                     }
                 );
             }
+        },
+        async copyFiles(params: FmCopyFilesInput) {
+            await filesPermissions.ensure({ rwd: "w" });
+            const currentIdentity = getIdentity();
+            const currentDateTime = new Date();
+            const tenant = getTenantId();
+            const locale = getLocaleCode();
+
+            const copiedFiles: File[] = [];
+
+            for (const item of params.files) {
+                try {
+                    const originalFile = await this.getFile(item.id);
+                    if (!originalFile) {
+                        throw new NotFoundError(`File with ID "${item.id}" not found.`);
+                    }
+
+                    // Ensure user can read the original file.
+                    await filesPermissions.ensure({ owns: originalFile.createdBy });
+
+                    const targetFolderId =
+                        item.folderId || originalFile.location?.folderId || ROOT_FOLDER;
+
+                    // Ensure user has write access to the target folder.
+                    // TODO: Implement folder-specific permissions if available. For now, general write permission is checked.
+                    await filesPermissions.ensure({ rwd: "w" });
+
+                    const newFileName = await generateUniqueFileName(
+                        originalFile.name,
+                        targetFolderId,
+                        this.listFiles
+                    );
+
+                    const [nameWithoutExtension, extension] = newFileName.split(/\.(?=[^.]+$)/);
+
+                    const newFileKey = `${nameWithoutExtension}.${
+                        extension || originalFile.type.split("/").pop()
+                    }`;
+
+                    // S3 copy operation
+                    await storage.storagePlugin.copy({
+                        sourceKey: originalFile.key,
+                        destinationKey: newFileKey,
+                        settings: await config.storage.getSettings() // Pass settings to the copy method
+                    });
+
+                    const newFile: File = {
+                        ...originalFile,
+                        id: String(new Date().getTime()), // Generate a new unique ID
+                        key: newFileKey,
+                        name: newFileName,
+                        location: {
+                            folderId: targetFolderId
+                        },
+                        createdOn: getDate(currentDateTime),
+                        modifiedOn: null,
+                        savedOn: getDate(currentDateTime),
+                        createdBy: utilsGetIdentity(currentIdentity)!,
+                        modifiedBy: null,
+                        savedBy: utilsGetIdentity(currentIdentity)!,
+                        tenant,
+                        locale,
+                        webinyVersion: WEBINY_VERSION
+                    };
+
+                    const result = await storageOperations.files.create({ file: newFile });
+                    copiedFiles.push(result);
+                } catch (ex) {
+                    console.error(`Failed to copy file with ID ${item.id}:`, ex);
+                    throw new WebinyError(
+                        ex.message || `Failed to copy file with ID ${item.id}.`,
+                        ex.code || "FILE_COPY_ERROR",
+                        { fileId: item.id }
+                    );
+                }
+            }
+            return copiedFiles.length > 0;
         }
     };
 };

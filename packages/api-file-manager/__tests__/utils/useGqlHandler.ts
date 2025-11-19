@@ -8,7 +8,8 @@ import {
     GET_FILE,
     LIST_FILES,
     LIST_TAGS,
-    UPDATE_FILE
+    UPDATE_FILE,
+    COPY_FILES
 } from "~tests/graphql/file";
 import { GET_SETTINGS, UPDATE_SETTINGS } from "~tests/graphql/fileManagerSettings";
 import type { HandlerParams } from "./plugins";
@@ -77,6 +78,9 @@ export default (params: HandlerParams = {}) => {
         },
         async listTags(variables = {}) {
             return invoke({ body: { query: LIST_TAGS, variables } });
+        },
+        async copyFiles(variables: Record<string, any>) {
+            return invoke({ body: { query: COPY_FILES, variables } });
         },
         // File Manager settings
         async getSettings(variables = {}) {

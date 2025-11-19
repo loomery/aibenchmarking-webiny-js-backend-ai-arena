@@ -5,7 +5,124 @@ import testFiles from "./data";
 import { ids, fileDData, fileCData, fileBData, fileAData } from "./mocks/files";
 
 describe("Files CRUD test", { timeout: 100_000, retry: 3 }, () => {
-    const { createFile, updateFile, createFiles, getFile, listFiles, listTags } = useGqlHandler();
+    const { createFile, updateFile, createFiles, getFile, listFiles, listTags, copyFiles } =
+        useGqlHandler();
+
+    test("should copy files", async () => {
+        // 1. Create an initial file
+        const [createFileResponse] = await createFile({ data: fileAData });
+        expect(createFileResponse).toEqual({
+            data: {
+                fileManager: {
+                    createFile: {
+                        data: fileAData,
+                        error: null
+                    }
+                }
+            }
+        });
+
+        // 2. Copy the file to the same folder
+        const [copyFilesResponse] = await copyFiles({
+            data: {
+                files: [{ id: fileAData.id }]
+            }
+        });
+
+        expect(copyFilesResponse).toEqual({
+            data: {
+                fileManager: {
+                    copyFiles: {
+                        data: true,
+                        error: null
+                    }
+                }
+            }
+        });
+
+        // Verify that two files exist and one has a unique name
+        const [listFilesResponse] = await listFiles();
+        expect(listFilesResponse.data.fileManager.listFiles.data.length).toBe(2);
+
+        const copiedFile = listFilesResponse.data.fileManager.listFiles.data.find(
+            (file: any) => file.name === "filenameA (1).png"
+        );
+        expect(copiedFile).toBeDefined();
+        expect(copiedFile.key).toContain("filenameA (1).png");
+        expect(copiedFile.location.folderId).toBe("root");
+        expect(copiedFile.id).not.toBe(fileAData.id);
+
+        // 3. Create another file
+        const [createFileResponse2] = await createFile({ data: fileBData });
+        expect(createFileResponse2).toEqual({
+            data: {
+                fileManager: {
+                    createFile: {
+                        data: fileBData,
+                        error: null
+                    }
+                }
+            }
+        });
+
+        // 4. Copy multiple files
+        const [copyMultipleFilesResponse] = await copyFiles({
+            data: {
+                files: [{ id: fileAData.id }, { id: fileBData.id }]
+            }
+        });
+
+        expect(copyMultipleFilesResponse).toEqual({
+            data: {
+                fileManager: {
+                    copyFiles: {
+                        data: true,
+                        error: null
+                    }
+                }
+            }
+        });
+
+        // Verify that total 5 files exist (original A, copied A, original B, copied A (2), copied B (1))
+        const [listAllFilesResponse] = await listFiles();
+        expect(listAllFilesResponse.data.fileManager.listFiles.data.length).toBe(5);
+
+        const copiedFileA2 = listAllFilesResponse.data.fileManager.listFiles.data.find(
+            (file: any) => file.name === "filenameA (2).png"
+        );
+        expect(copiedFileA2).toBeDefined();
+        expect(copiedFileA2.id).not.toBe(fileAData.id);
+
+        const copiedFileB1 = listAllFilesResponse.data.fileManager.listFiles.data.find(
+            (file: any) => file.name === "filenameB (1).jpeg"
+        );
+        expect(copiedFileB1).toBeDefined();
+        expect(copiedFileB1.id).not.toBe(fileBData.id);
+
+        // 5. Test error case - non-existent file
+        const [copyNonExistentFileResponse] = await copyFiles({
+            data: {
+                files: [{ id: "non-existent-id" }]
+            }
+        });
+
+        expect(copyNonExistentFileResponse).toEqual({
+            data: {
+                fileManager: {
+                    copyFiles: {
+                        data: null,
+                        error: {
+                            code: "FILE_COPY_ERROR",
+                            message: 'Failed to copy file with ID "non-existent-id".',
+                            data: {
+                                fileId: "non-existent-id"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
 
     beforeAll(() => {
         testFiles.forEach(file => {

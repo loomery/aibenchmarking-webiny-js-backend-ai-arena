@@ -1,0 +1,25 @@
+Hello! As an advanced backend software engineer, I've reviewed your request. Here is my understanding of the task and  
+  the plan to implement it.                                                                                              
+                                                                                                                         
+  Task Understanding and Plan                                                                                            
+                                                                                                                         
+  My objective is to implement a copyFiles feature within the File Manager's backend. This will be exposed through a new 
+  GraphQL mutation. The feature needs to support copying multiple files into a specified destination folder, handling    
+  any potential file name collisions gracefully. Since no frontend changes are required, my focus will be exclusively on 
+  the API and backend business logic.                                                                                    
+                                                                                                                         
+  Here is my plan:                                                                                                       
+                                                                                                                         
+   1. Codebase Investigation: I will start by exploring the existing file creation and update logic to understand the    
+      current architecture. This will help me identify the right places to add the new functionality, following the      
+      project's conventions.                                                                                             
+   2. GraphQL Schema Definition: I will define a new copyFiles mutation in the File Manager's GraphQL schema. This       
+      mutation will accept a list of file IDs to copy and the ID of the destination folder.                              
+   3. Core Logic Implementation: I will implement the main business logic for copying files. This will involve fetching  
+      metadata for the source files, executing an S3 copy operation for the file content, creating new file metadata     
+      entries in the database, and managing any naming conflicts that may arise.                                         
+   4. Add Tests: To ensure the new functionality is robust and correct, I will write unit and/or integration tests      ▄
+      covering the copyFiles operation, including edge cases like permission errors and name conflicts.                 █
+                                                                                                                        █
+  I will now begin with the first step: investigating the existing codebase. I will start by searching for files related█
+  to the File Manager to identify the main components.

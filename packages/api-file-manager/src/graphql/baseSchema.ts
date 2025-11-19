@@ -55,8 +55,21 @@ export const createBaseSchema = () => {
                 error: FmError
             }
 
+            input FmCopyFileItem {
+                id: ID!
+                folderId: ID
+            }
+            input FmCopyFilesInput {
+                files: [FmCopyFileItem!]!
+            }
+            type FmCopyFilesResponse {
+                data: Boolean
+                error: FmError
+            }
+
             type FmMutation {
                 updateSettings(data: FmSettingsInput): FmSettingsResponse
+                copyFiles(data: FmCopyFilesInput!): FmCopyFilesResponse
             }
 
             extend type Query {
@@ -82,6 +95,9 @@ export const createBaseSchema = () => {
             FmMutation: {
                 async updateSettings(_, args: any, context) {
                     return resolve(() => context.fileManager.updateSettings(args.data));
+                },
+                async copyFiles(_, args: any, context) {
+                    return resolve(() => context.fileManager.copyFiles(args.data));
                 }
             }
         }

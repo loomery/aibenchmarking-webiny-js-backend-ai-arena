@@ -91,6 +91,9 @@ export interface ListTagsResponse {
     tag: string;
     count: number;
 }
+export interface FmCopyFilesInput {
+    files: Array<{ id: string; folderId?: string }>;
+}
 export interface FilesCRUD extends FileLifecycleEvents {
     getFile(id: string): Promise<File>;
     listFiles(opts?: FilesListOpts): Promise<[File[], FileListMeta]>;
@@ -99,6 +102,7 @@ export interface FilesCRUD extends FileLifecycleEvents {
     updateFile(id: string, data: Partial<FileInput>): Promise<File>;
     deleteFile(id: string): Promise<boolean>;
     createFilesInBatch(data: FileInput[], meta?: Record<string, any>): Promise<File[]>;
+    copyFiles(params: FmCopyFilesInput): Promise<boolean>;
 }
 
 export interface FileManagerSettings {

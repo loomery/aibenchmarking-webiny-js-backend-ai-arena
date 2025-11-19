@@ -1,5 +1,8 @@
 import { S3 } from "@webiny/aws-sdk/client-s3/index.js";
-import { FilePhysicalStoragePlugin } from "@webiny/api-file-manager/plugins/FilePhysicalStoragePlugin.js";
+import {
+    FilePhysicalStoragePlugin,
+    FilePhysicalStoragePluginCopyParams
+} from "@webiny/api-file-manager/plugins/FilePhysicalStoragePlugin.js";
 import { getPresignedPostPayload } from "~/utils/getPresignedPostPayload.js";
 import uploadFileToS3 from "../utils/uploadFileToS3.js";
 import { ContextPlugin } from "@webiny/api";
@@ -47,6 +50,20 @@ export default () => {
                     await s3.deleteObject({
                         Bucket: S3_BUCKET,
                         Key: key
+                    });
+                },
+                copy: async (params: FilePhysicalStoragePluginCopyParams) => {
+                    const { sourceKey, destinationKey } = params;
+                    const s3 = new S3();
+
+                    if (!sourceKey || !destinationKey || !S3_BUCKET) {
+                        return;
+                    }
+
+                    await s3.copyObject({
+                        Bucket: S3_BUCKET,
+                        CopySource: `${S3_BUCKET}/${sourceKey}`,
+                        Key: destinationKey
                     });
                 }
             })
