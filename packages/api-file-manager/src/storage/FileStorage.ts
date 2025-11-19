@@ -1,4 +1,4 @@
-import type { FileManagerContext } from "~/types.js";
+import type { FileManagerContext, FileManagerSettings } from "~/types.js";
 import WebinyError from "@webiny/error";
 import type { FilePhysicalStoragePlugin } from "~/plugins/FilePhysicalStoragePlugin.js";
 
@@ -51,8 +51,12 @@ export class FileStorage {
         return storagePlugin;
     }
 
+    public async getSettings(): Promise<FileManagerSettings | null> {
+        return this.context.fileManager.getSettings();
+    }
+
     async upload(params: FileStorageUploadParams): Promise<Result> {
-        const settings = await this.context.fileManager.getSettings();
+        const settings = await this.getSettings();
         if (!settings) {
             throw new WebinyError("Missing File Manager Settings.", "FILE_MANAGER_ERROR");
         }
@@ -74,7 +78,7 @@ export class FileStorage {
     }
 
     async uploadFiles({ files }: FileStorageUploadMultipleParams) {
-        const settings = await this.context.fileManager.getSettings();
+        const settings = await this.getSettings();
         if (!settings) {
             throw new WebinyError("Missing File Manager Settings.", "FILE_MANAGER_ERROR");
         }
@@ -102,13 +106,12 @@ export class FileStorage {
 
     async delete(params: FileStorageDeleteParams) {
         const { id, key } = params;
-        const { fileManager } = this.context;
         // Delete file from cloud storage.
         await this.storagePlugin.delete({
             key
         });
 
         // Delete file from the DB.
-        return await fileManager.deleteFile(id);
+        return await this.context.fileManager.deleteFile(id);
     }
 }

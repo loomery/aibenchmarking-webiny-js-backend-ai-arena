@@ -432,10 +432,18 @@ export const createFilesCrud = (
                     }`;
 
                     // S3 copy operation
+                    const fmSettings = await config.storage.getSettings();
+                    if (!fmSettings) {
+                        throw new WebinyError(
+                            "File Manager settings not found.",
+                            "FILE_MANAGER_SETTINGS_NOT_FOUND"
+                        );
+                    }
+
                     await storage.storagePlugin.copy({
                         sourceKey: originalFile.key,
                         destinationKey: newFileKey,
-                        settings: await config.storage.getSettings() // Pass settings to the copy method
+                        settings: fmSettings
                     });
 
                     const newFile: File = {
