@@ -1,0 +1,41 @@
+Task Understanding and Plan
+The task is to implement a "Copy Files" feature in the Webiny File Manager backend. This involves:
+
+GraphQL API: Exposing a copyFiles mutation that accepts a list of file IDs and an optional destination folder.
+Storage Logic: Duplicating the physical file in S3 (Deep Copy) to ensure independent lifecycle (deleting one copy doesn't affect the other).
+Database Logic: Creating a new file record in the database for the copied file, pointing to the new S3 key.
+I have implemented this by:
+
+Extending the FilePhysicalStoragePlugin interface to support a copy operation.
+Implementing the copy operation in the S3 storage plugin (api-file-manager-s3).
+Adding a copyFiles method to the FileStorage class (the high-level storage coordinator).
+Updating the GraphQL schema and resolvers to expose the functionality.
+Proposed Changes
+
+1. Update FilePhysicalStoragePlugin Interface
+Modified FilePhysicalStoragePlugin.ts to include the copy method definition and types.
+
+2. Implement S3 Copy Logic
+Modified fileStorageS3.ts to implement the copy method using s3.copyObject. It generates a new ID and Key for the copy.
+
+3. Add copyFiles to FileStorage
+Modified FileStorage.ts to add the copyFiles method. This method:
+
+Iterates through the provided file IDs.
+Calls the storage plugin to physically copy the file.
+Creates a new database record for the copied file, preserving metadata (tags, etc.) but resetting system fields (createdOn, etc.) and clearing aliases.
+4. Update GraphQL Schema & Resolvers
+
+Modified createFilesTypeDefs.ts to add FmCopyFilesInput and the copyFiles mutation definition.
+Modified filesSchema.ts to add the copyFiles resolver which delegates to context.fileManager.storage.copyFiles.
+Verification and Self-Review
+
+Correctness: The solution performs a deep copy on S3, which is safer than a shallow copy (referencing the same key) because deleteFile removes the S3 object.
+Architecture: The changes follow the existing layered architecture: GraphQL -> Resolver -> FileStorage (Coordinator) -> StoragePlugin (Physical) + FileManager (DB).
+Types: TypeScript interfaces were updated to ensure type safety.
+Edge Cases:
+Missing File: The loop in copyFiles skips missing files.
+Location: The user can optionally specify a new folder location; otherwise, it defaults to the original location.
+Aliases: Aliases are cleared for the copy to avoid conflicts (aliases must be unique).
+Metadata: Tags and custom meta are preserved.
+The implementation is complete and ready for use.

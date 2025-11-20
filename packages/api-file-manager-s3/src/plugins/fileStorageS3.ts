@@ -5,6 +5,8 @@ import uploadFileToS3 from "../utils/uploadFileToS3.js";
 import { ContextPlugin } from "@webiny/api";
 import { createFileNormalizerFromContext } from "~/utils/createFileNormalizerFromContext.js";
 import type { PresignedPostPayloadData } from "~/types.js";
+import { mdbid } from "@webiny/utils";
+import { FileKey } from "~/utils/FileKey.js";
 
 const S3_BUCKET = process.env.S3_BUCKET;
 
@@ -48,6 +50,36 @@ export default () => {
                         Bucket: S3_BUCKET,
                         Key: key
                     });
+                },
+                copy: async params => {
+                    const { key, name, type, location } = params;
+                    const s3 = new S3();
+
+                    if (!key || !S3_BUCKET) {
+                        throw new Error("Missing key or S3_BUCKET.");
+                    }
+
+                    const id = mdbid();
+
+                    const fileKey = new FileKey({
+                        id,
+                        name,
+                        type,
+                        size: 0,
+                        keyPrefix: location?.folderId
+                    });
+                    const newKey = fileKey.toString();
+
+                    await s3.copyObject({
+                        Bucket: S3_BUCKET,
+                        CopySource: `${S3_BUCKET}/${key}`,
+                        Key: newKey
+                    });
+
+                    return {
+                        key: newKey,
+                        id
+                    };
                 }
             })
         );

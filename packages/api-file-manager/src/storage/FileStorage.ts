@@ -22,6 +22,15 @@ export interface FileStorageDeleteParams {
     key: string;
 }
 
+export interface FileStorageCopyParams {
+    ids: string[];
+    meta?: {
+        location?: {
+            folderId: string;
+        };
+    };
+}
+
 export interface FileStorageUploadMultipleParams {
     files: FileStorageUploadParams[];
 }
@@ -110,5 +119,44 @@ export class FileStorage {
 
         // Delete file from the DB.
         return await fileManager.deleteFile(id);
+    }
+
+    async copyFiles(params: FileStorageCopyParams) {
+        const { ids, meta } = params;
+        const { fileManager } = this.context;
+
+        const results = [];
+        for (const id of ids) {
+            const original = await fileManager.getFile(id);
+            if (!original) {
+                continue;
+            }
+
+            const { key, id: newId } = await this.storagePlugin.copy({
+                key: original.key,
+                name: original.name,
+                type: original.type,
+                location: meta?.location
+            });
+
+            const { ...fileData } = original;
+            delete (fileData as any).id;
+            delete (fileData as any).createdOn;
+            delete (fileData as any).modifiedOn;
+            delete (fileData as any).savedOn;
+            delete (fileData as any).createdBy;
+            delete (fileData as any).modifiedBy;
+            delete (fileData as any).savedBy;
+
+            const newFile = await fileManager.createFile({
+                ...fileData,
+                id: newId,
+                key: key,
+                location: meta?.location || original.location,
+                aliases: []
+            });
+            results.push(newFile);
+        }
+        return results;
     }
 }
