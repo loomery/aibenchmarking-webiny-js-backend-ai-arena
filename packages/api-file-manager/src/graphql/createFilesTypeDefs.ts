@@ -115,6 +115,15 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             ${inputUpdateFields.map(f => f.fields).join("\n")}
         }
 
+        input FmCopyFileLocationInput {
+            folderId: String!
+        }
+
+        input FmCopyFilesInput {
+            ids: [ID!]!
+            location: FmCopyFileLocationInput
+        }
+
         type FmFileResponse {
             data: FmFile
             error: FmError
@@ -180,6 +189,7 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             createFiles(data: [FmFileCreateInput!]!): FmCreateFilesResponse!
             updateFile(id: ID!, data: FmFileUpdateInput!): FmFileResponse!
             deleteFile(id: ID!): FmBooleanResponse!
+            copyFiles(data: FmCopyFilesInput!): FmCreateFilesResponse!
         }
     `;
 };

@@ -1,0 +1,12 @@
+Plan: File Manager Copy Backend
+Implement GraphQL-powered file copy by extending existing File Manager schema, resolver, and service layers to duplicate metadata and binary content into a target folder with multi-file support, reusing current storage and authorization abstractions.
+
+Steps
+Inspect existing GraphQL SDL/resolvers under src for mutations like moveFiles.
+Trace resolver-to-service flow in plugins to understand request context, permissions, audits.
+Review data/storage adapters in api-file-manager-ddb and related providers for reusable copy primitives.
+Design service/resolver changes to accept multiple file IDs and target folder, ensuring metadata and storage copy.
+Extend or add tests in packages/api-file-manager/src/__tests__ (or equivalent) covering multi-file copy scenarios.
+Further Considerations
+Confirm desired behavior when copying into same folder vs. naming collisions (Option A overwrite / Option B new key / Option C reject).
+Verify whether binary duplication should occur synchronously or via existing background tasks.

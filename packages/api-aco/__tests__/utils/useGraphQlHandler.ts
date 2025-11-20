@@ -5,6 +5,7 @@ import createGraphQLHandler from "@webiny/handler-graphql";
 import type { Plugin, PluginCollection } from "@webiny/plugins/types";
 import { createTenancyAndSecurity } from "./tenancySecurity";
 import { until } from "@webiny/project-utils/testing/helpers/until";
+import { mdbid } from "@webiny/utils";
 
 import {
     CREATE_FOLDER,
@@ -123,7 +124,18 @@ export const useGraphQlHandler = (params: UseGQLHandlerParams = {}) => {
             new FilePhysicalStoragePlugin({
                 upload: async () => {},
 
-                delete: async () => {}
+                delete: async () => {},
+
+                copy: async params => {
+                    const id = mdbid();
+                    const fileName = params.key.split("/").pop() || params.name;
+                    const keySegments = [params.location?.folderId, id, fileName].filter(Boolean);
+
+                    return {
+                        id,
+                        key: keySegments.join("/")
+                    };
+                }
             }),
             createHeadlessCmsGraphQL(),
             createAco({ documentClient }),

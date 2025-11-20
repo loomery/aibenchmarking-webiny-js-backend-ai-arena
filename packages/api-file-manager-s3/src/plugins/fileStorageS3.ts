@@ -48,6 +48,37 @@ export default () => {
                         Bucket: S3_BUCKET,
                         Key: key
                     });
+                },
+                copy: async params => {
+                    const { key, name, type, size, location } = params;
+                    const s3 = new S3();
+
+                    if (!key || !S3_BUCKET) {
+                        throw new Error("Missing key or S3_BUCKET.");
+                    }
+
+                    const normalizer = createFileNormalizerFromContext(context);
+                    const fileToNormalize: PresignedPostPayloadData = {
+                        name,
+                        type,
+                        size,
+                        keyPrefix: location?.folderId
+                    };
+                    const normalized = await normalizer.normalizeFile(fileToNormalize);
+
+                    await s3.copyObject({
+                        Bucket: S3_BUCKET,
+                        CopySource: `${S3_BUCKET}/${key}`,
+                        Key: normalized.key
+                    });
+
+                    return {
+                        id: normalized.id,
+                        key: normalized.key,
+                        name: normalized.name,
+                        size: normalized.size,
+                        type: normalized.type
+                    };
                 }
             })
         );

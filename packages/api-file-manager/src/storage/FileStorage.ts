@@ -1,6 +1,9 @@
-import type { FileManagerContext } from "~/types.js";
+import type { File, FileManagerContext } from "~/types.js";
 import WebinyError from "@webiny/error";
-import type { FilePhysicalStoragePlugin } from "~/plugins/FilePhysicalStoragePlugin.js";
+import type {
+    FilePhysicalStoragePlugin,
+    FilePhysicalStoragePluginCopyResult
+} from "~/plugins/FilePhysicalStoragePlugin.js";
 
 export type Result = Record<string, any>;
 
@@ -24,6 +27,15 @@ export interface FileStorageDeleteParams {
 
 export interface FileStorageUploadMultipleParams {
     files: FileStorageUploadParams[];
+}
+
+export interface FileStorageCopyFilesLocation {
+    folderId: string;
+}
+
+export interface FileStorageCopyFilesParams {
+    ids: string[];
+    location?: FileStorageCopyFilesLocation;
 }
 
 export interface FileStorageParams {
@@ -110,5 +122,49 @@ export class FileStorage {
 
         // Delete file from the DB.
         return await fileManager.deleteFile(id);
+    }
+
+    async copyFiles(params: FileStorageCopyFilesParams): Promise<File[]> {
+        const { ids, location } = params;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return [];
+        }
+
+        const copies: File[] = [];
+
+        for (const fileId of ids) {
+            const original = await this.context.fileManager.getFile(fileId);
+            const targetLocation = location ?? original.location;
+
+            const copyResult: FilePhysicalStoragePluginCopyResult = await this.storagePlugin.copy({
+                key: original.key,
+                name: original.name,
+                type: original.type,
+                size: original.size,
+                location: targetLocation
+            });
+
+            const copyName = copyResult.name ?? original.name;
+            const copySize = copyResult.size ?? original.size;
+            const copyType = copyResult.type ?? original.type;
+
+            const newFileInput = {
+                id: copyResult.id,
+                key: copyResult.key,
+                name: copyName,
+                size: copySize,
+                type: copyType,
+                meta: { ...(original.meta || {}) },
+                location: targetLocation ? { folderId: targetLocation.folderId } : undefined,
+                tags: Array.isArray(original.tags) ? [...original.tags] : [],
+                aliases: [],
+                extensions: original.extensions ? { ...original.extensions } : undefined
+            };
+
+            const created = await this.context.fileManager.createFile(newFileInput);
+            copies.push(created);
+        }
+
+        return copies;
     }
 }

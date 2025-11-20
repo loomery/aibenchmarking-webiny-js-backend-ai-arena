@@ -195,6 +195,15 @@ export default /* GraphQL */ `
         extensions: FmFile_ExtensionsInput
     }
 
+    input FmCopyFileLocationInput {
+        folderId: String!
+    }
+
+    input FmCopyFilesInput {
+        ids: [ID!]!
+        location: FmCopyFileLocationInput
+    }
+
     type FmFileResponse {
         data: FmFile
         error: FmError
@@ -518,5 +527,6 @@ export default /* GraphQL */ `
         createFiles(data: [FmFileCreateInput!]!): FmCreateFilesResponse!
         updateFile(id: ID!, data: FmFileUpdateInput!): FmFileResponse!
         deleteFile(id: ID!): FmBooleanResponse!
+        copyFiles(data: FmCopyFilesInput!): FmCreateFilesResponse!
     }
 `;

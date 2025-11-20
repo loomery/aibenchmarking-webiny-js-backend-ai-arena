@@ -3,9 +3,11 @@ import { mdbid } from "@webiny/utils";
 import useGqlHandler from "~tests/utils/useGqlHandler";
 import testFiles from "./data";
 import { ids, fileDData, fileCData, fileBData, fileAData } from "./mocks/files";
+import { FilePhysicalStoragePlugin } from "~/plugins/FilePhysicalStoragePlugin.js";
 
 describe("Files CRUD test", { timeout: 100_000, retry: 3 }, () => {
-    const { createFile, updateFile, createFiles, getFile, listFiles, listTags } = useGqlHandler();
+    const { createFile, updateFile, createFiles, copyFiles, getFile, listFiles, listTags } =
+        useGqlHandler();
 
     beforeAll(() => {
         testFiles.forEach(file => {
@@ -142,6 +144,155 @@ describe("Files CRUD test", { timeout: 100_000, retry: 3 }, () => {
                 }
             }
         });
+    });
+
+    test("should copy multiple files into target folder", async () => {
+        const sourceAId = mdbid();
+        const sourceBId = mdbid();
+
+        const sourceA = {
+            ...fileAData,
+            id: sourceAId,
+            key: `${sourceAId}/filenameA.png`
+        };
+        const sourceB = {
+            ...fileBData,
+            id: sourceBId,
+            key: `${sourceBId}/filenameB.png`
+        };
+
+        const [createSources] = await createFiles({
+            data: [sourceA, sourceB]
+        });
+
+        expect(createSources).toEqual({
+            data: {
+                fileManager: {
+                    createFiles: {
+                        data: expect.any(Array),
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const targetFolderId = `folder-${mdbid()}`;
+
+        const [copyResponse] = await copyFiles(
+            {
+                data: {
+                    ids: [sourceAId, sourceBId],
+                    location: {
+                        folderId: targetFolderId
+                    }
+                }
+            },
+            ["location { folderId }"]
+        );
+
+        expect(copyResponse).toEqual({
+            data: {
+                fileManager: {
+                    copyFiles: {
+                        data: [
+                            {
+                                id: expect.any(String),
+                                key: expect.any(String),
+                                name: sourceA.name,
+                                size: sourceA.size,
+                                type: sourceA.type,
+                                tags: sourceA.tags,
+                                aliases: [],
+                                location: {
+                                    folderId: targetFolderId
+                                }
+                            },
+                            {
+                                id: expect.any(String),
+                                key: expect.any(String),
+                                name: sourceB.name,
+                                size: sourceB.size,
+                                type: sourceB.type,
+                                tags: sourceB.tags,
+                                aliases: [],
+                                location: {
+                                    folderId: targetFolderId
+                                }
+                            }
+                        ],
+                        error: null
+                    }
+                }
+            }
+        });
+
+        const copiedFiles = copyResponse.data.fileManager.copyFiles.data;
+        expect(copiedFiles[0].id).not.toEqual(sourceAId);
+        expect(copiedFiles[0].key).not.toEqual(sourceA.key);
+        expect(copiedFiles[1].id).not.toEqual(sourceBId);
+        expect(copiedFiles[1].key).not.toEqual(sourceB.key);
+    });
+
+    test("should apply storage plugin metadata overrides when copying files", async () => {
+        const tenantPrefix = `tenant-${mdbid()}`;
+        const customStoragePlugin = new FilePhysicalStoragePlugin({
+            upload: async () => {},
+            delete: async () => {},
+            copy: async params => {
+                const id = mdbid();
+
+                const nameParts = params.name.split(".");
+                const extension = nameParts.length > 1 ? nameParts.pop() || "" : "";
+                const baseName = nameParts.join(".") || params.name;
+                const copyName = extension ? `${baseName}-copy.${extension}` : `${baseName}-copy`;
+
+                const segments = [tenantPrefix, params.location?.folderId, id, copyName].filter(
+                    Boolean
+                );
+
+                return {
+                    id,
+                    key: segments.join("/"),
+                    name: copyName,
+                    size: params.size + 10,
+                    type: `${params.type};copy`
+                };
+            }
+        });
+
+        const { createFiles, copyFiles } = useGqlHandler({ plugins: [customStoragePlugin] });
+
+        const sourceId = mdbid();
+        const source = {
+            ...fileAData,
+            id: sourceId,
+            key: `${sourceId}/filenameA.png`
+        };
+
+        await createFiles({
+            data: [source]
+        });
+
+        const targetFolderId = `folder-${mdbid()}`;
+
+        const [copyResponse] = await copyFiles(
+            {
+                data: {
+                    ids: [sourceId],
+                    location: {
+                        folderId: targetFolderId
+                    }
+                }
+            },
+            ["location { folderId }"]
+        );
+
+        const copiedFile = copyResponse.data.fileManager.copyFiles.data[0];
+
+        expect(copiedFile.name).toBe("filenameA-copy.png");
+        expect(copiedFile.size).toBe(source.size + 10);
+        expect(copiedFile.type).toBe(`${source.type};copy`);
+        expect(copiedFile.key.startsWith(`${tenantPrefix}/${targetFolderId}`)).toBeTruthy();
     });
 
     test("should create files in bulk and paginate using cursor", async () => {

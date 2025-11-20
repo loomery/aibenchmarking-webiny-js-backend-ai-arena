@@ -47,6 +47,19 @@ export const CREATE_FILES = (fields: string[] = []) => {
     `;
 };
 
+export const COPY_FILES = (fields: string[] = []) => {
+    return /* GraphQL */ `
+        mutation CopyFiles($data: FmCopyFilesInput!) {
+            fileManager {
+                copyFiles(data: $data) {
+                    data ${DATA_FIELD_WITH_ID(fields)}
+                    error ${ERROR_FIELD}
+                }
+            }
+        }
+    `;
+};
+
 export const UPDATE_FILE = (fields: string[] = []) => {
     return /* GraphQL */ `
         mutation UpdateFile($id: ID!, $data: FmFileUpdateInput!) {

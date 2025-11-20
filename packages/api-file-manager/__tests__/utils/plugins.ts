@@ -19,6 +19,7 @@ import { createApiCore } from "@webiny/api-core";
 import type { IdentityData } from "@webiny/api-core/features/security/IdentityContext/index.js";
 import { createTestWcpLicense } from "@webiny/wcp/testing/createTestWcpLicense";
 import type { ApiCoreStorageOperations } from "@webiny/api-core/types/core.js";
+import { mdbid } from "@webiny/utils";
 
 export interface HandlerParams {
     permissions?: SecurityPermission[];
@@ -62,7 +63,18 @@ export const handlerPlugins = (params: HandlerParams) => {
         new FilePhysicalStoragePlugin({
             upload: async () => {},
 
-            delete: async () => {}
+            delete: async () => {},
+
+            copy: async params => {
+                const id = mdbid();
+                const fileName = params.key.split("/").pop() || params.name;
+                const segments = [params.location?.folderId, id, fileName].filter(Boolean);
+
+                return {
+                    id,
+                    key: segments.join("/")
+                };
+            }
         }),
         /**
          * Make sure we dont have undefined plugins value.
