@@ -82,6 +82,11 @@ export const createFilesSchema = (params: CreateFilesTypeDefsParams) => {
                             key: file.key
                         });
                     });
+                },
+                async copyFiles(_, args: any, context) {
+                    return resolve(() => {
+                        return context.fileManager.copyFiles(args.data);
+                    });
                 }
             }
         }

@@ -1,6 +1,7 @@
 import { NotFoundError } from "@webiny/handler-graphql";
 import { createTopic } from "@webiny/pubsub";
 import WebinyError from "@webiny/error";
+import { mdbid } from "@webiny/utils";
 import type {
     File,
     FileManagerFilesStorageOperationsListParamsWhere,
@@ -44,6 +45,8 @@ export const createFilesCrud = (
         onFileAfterUpdate: createTopic("fileManager.onFileAfterUpdate"),
         onFileBeforeDelete: createTopic("fileManager.onFileBeforeDelete"),
         onFileAfterDelete: createTopic("fileManager.onFileAfterDelete"),
+        onFileBeforeCopy: createTopic("fileManager.onFileBeforeCopy"),
+        onFileAfterCopy: createTopic("fileManager.onFileAfterCopy"),
         async getFile(id: string) {
             await filesPermissions.ensure({ rwd: "r" });
 
@@ -360,6 +363,78 @@ export const createFilesCrud = (
                     {
                         ...(ex.data || {}),
                         params
+                    }
+                );
+            }
+        },
+        async copyFiles({ ids, folderId }) {
+            await filesPermissions.ensure({ rwd: "r" });
+            await filesPermissions.ensure({ rwd: "w" });
+
+            const tenant = getTenantId();
+            const locale = getLocaleCode();
+
+            // Fetch source files
+            const sourceFiles: File[] = [];
+            for (const id of ids) {
+                const file = await storageOperations.files.get({
+                    where: {
+                        id,
+                        tenant,
+                        locale
+                    }
+                });
+
+                if (!file) {
+                    throw new NotFoundError(`File with id "${id}" does not exist.`);
+                }
+
+                await filesPermissions.ensure({ owns: file.createdBy });
+                sourceFiles.push(file);
+            }
+
+            const currentIdentity = getIdentity();
+            const currentDateTime = new Date();
+
+            // Create copies with new IDs and updated folder location
+            const filesToCopy: File[] = sourceFiles.map(sourceFile => {
+                const newId = mdbid();
+                const newKey = `${newId}/${sourceFile.key.split("/").slice(1).join("/")}`;
+
+                return {
+                    ...sourceFile,
+                    id: newId,
+                    key: newKey,
+                    location: {
+                        folderId: folderId ?? sourceFile.location.folderId
+                    },
+                    createdOn: getDate(currentDateTime),
+                    modifiedOn: null,
+                    savedOn: getDate(currentDateTime),
+                    createdBy: utilsGetIdentity(currentIdentity)!,
+                    modifiedBy: null,
+                    savedBy: utilsGetIdentity(currentIdentity)!,
+                    tenant,
+                    locale,
+                    webinyVersion: WEBINY_VERSION
+                };
+            });
+
+            try {
+                await this.onFileBeforeCopy.publish({ files: filesToCopy, sourceFiles });
+                const results = await storageOperations.files.createBatch({
+                    files: filesToCopy
+                });
+                await this.onFileAfterCopy.publish({ files: results, sourceFiles });
+                return results;
+            } catch (ex) {
+                throw new WebinyError(
+                    ex.message || "Could not copy files.",
+                    ex.code || "COPY_FILES_ERROR",
+                    {
+                        ...(ex.data || {}),
+                        ids,
+                        folderId
                     }
                 );
             }

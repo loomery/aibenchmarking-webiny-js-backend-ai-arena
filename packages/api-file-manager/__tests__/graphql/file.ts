@@ -71,6 +71,19 @@ export const DELETE_FILE = /* GraphQL */ `
     }
 `;
 
+export const COPY_FILES = (fields: string[] = []) => {
+    return /* GraphQL */ `
+        mutation CopyFiles($data: FmCopyFilesInput!) {
+            fileManager {
+                copyFiles(data: $data) {
+                    data ${DATA_FIELD_WITH_ID(fields)}
+                    error ${ERROR_FIELD}
+                }
+            }
+        }
+    `;
+};
+
 export const GET_FILE = (fields: string[] = []) => {
     return /* GraphQL */ `
         query GetFile($id: ID!) {

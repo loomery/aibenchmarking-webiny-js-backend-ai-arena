@@ -41,6 +41,16 @@ export interface OnFileAfterDeleteTopicParams<TFile extends File = File> {
     file: TFile;
 }
 
+export interface OnFileBeforeCopyTopicParams<TFile extends File = File> {
+    files: TFile[];
+    sourceFiles: TFile[];
+}
+
+export interface OnFileAfterCopyTopicParams<TFile extends File = File> {
+    files: TFile[];
+    sourceFiles: TFile[];
+}
+
 export interface FileLifecycleEvents {
     onFileBeforeCreate: Topic<OnFileBeforeCreateTopicParams>;
     onFileAfterCreate: Topic<OnFileAfterCreateTopicParams>;
@@ -50,4 +60,6 @@ export interface FileLifecycleEvents {
     onFileAfterUpdate: Topic<OnFileAfterUpdateTopicParams>;
     onFileBeforeDelete: Topic<OnFileBeforeDeleteTopicParams>;
     onFileAfterDelete: Topic<OnFileAfterDeleteTopicParams>;
+    onFileBeforeCopy: Topic<OnFileBeforeCopyTopicParams>;
+    onFileAfterCopy: Topic<OnFileAfterCopyTopicParams>;
 }

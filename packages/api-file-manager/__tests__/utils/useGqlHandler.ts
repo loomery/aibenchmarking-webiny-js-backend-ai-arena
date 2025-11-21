@@ -4,6 +4,7 @@ import { until } from "@webiny/project-utils/testing/helpers/until";
 import {
     CREATE_FILE,
     CREATE_FILES,
+    COPY_FILES,
     DELETE_FILE,
     GET_FILE,
     LIST_FILES,
@@ -68,6 +69,9 @@ export default (params: HandlerParams = {}) => {
         },
         async deleteFile(variables: Record<string, any>) {
             return invoke({ body: { query: DELETE_FILE, variables } });
+        },
+        async copyFiles(variables: Record<string, any>, fields: string[] = []) {
+            return invoke({ body: { query: COPY_FILES(fields), variables } });
         },
         async getFile(variables: Record<string, any>, fields: string[] = []) {
             return invoke({ body: { query: GET_FILE(fields), variables } });

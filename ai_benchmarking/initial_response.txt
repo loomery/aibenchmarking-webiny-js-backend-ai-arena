@@ -1,0 +1,22 @@
+lan: Add Backend Copy Files Functionality
+This plan implements a GraphQL mutation to copy multiple files to a different folder in the File Manager backend. The solution follows existing patterns for batch operations (createFilesInBatch) and folder management (similar to ACO's moveRecord).
+
+Steps
+Add copyFiles method to FilesCRUD interface in types.ts - define the interface signature accepting file IDs and target folder location, returning copied files
+
+Implement copyFiles business logic in files.crud.ts - fetch source files by IDs, create copies with new IDs and updated folder locations, preserve file metadata (size, type, tags, etc.), validate permissions (read on source, write on target), and leverage existing createFilesInBatch for database operations
+
+Add GraphQL schema definition already exists in createFilesTypeDefs.ts at line 178 - verify the FmCopyFilesInput and copyFiles mutation types match requirements (ids array and optional folderId location)
+
+Implement GraphQL resolver in filesSchema.ts - add copyFiles resolver to FmMutation calling context.fileManager.copyFiles with proper error handling using the resolve utility
+
+Add storage plugin copy support in fileStorageS3.ts - implement S3 copyObject operation in FilePhysicalStoragePlugin to duplicate files in cloud storage, or reuse existing keys if physical copy is unnecessary (discuss with team)
+
+Add lifecycle event hooks in files.crud.ts - define onFileBeforeCopy and onFileAfterCopy topics following the pattern of existing file operations for extensibility
+
+Further Considerations
+S3 Physical Copy Strategy: Should copied files create new S3 objects (using copyObject API) or reuse the same S3 key? New objects provide true isolation but consume more storage; shared keys are efficient but risk side effects. Recommend: Start with shared keys since file metadata is separate in the database.
+
+Permission Validation: Should users need read permissions on source files AND write permissions on target folder, or is write permission on target folder sufficient? Recommend: Require both for security.
+
+ID Generation for Copies: Use mdbid() for new file IDs or append suffix like -copy to original IDs? Recommend: Generate new unique IDs to avoid collisions and maintain consistency with createFile pattern.
