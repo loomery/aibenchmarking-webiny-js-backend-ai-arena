@@ -66,10 +66,10 @@ export const copyFilesToS3 = () => {
     return new ContextPlugin<FileManagerContext>(context => {
         const s3FileCopier = new S3FileCopier(String(process.env.S3_BUCKET));
 
-        context.fileManager.onFileAfterBatchCreate.subscribe(({ files, meta }) => {
+        context.fileManager.onFileAfterBatchCreate.subscribe(async ({ files, meta }) => {
             // Only handle copy operations
             if (meta?.operation === "copy" && meta?.sourceKeyMap) {
-                return s3FileCopier.copyFiles(files, meta.sourceKeyMap as Map<string, string>);
+                await s3FileCopier.copyFiles(files, meta.sourceKeyMap as Map<string, string>);
             }
         });
     });
