@@ -77,9 +77,12 @@ export const createFilesCrud = (
                 tags: Array.isArray(input.tags) ? input.tags : [],
                 aliases: Array.isArray(input.aliases) ? input.aliases : [],
                 id: input.id || id,
-                location: {
-                    folderId: input.location?.folderId ?? ROOT_FOLDER
-                },
+                location:
+                    typeof input.location === "string"
+                        ? { folderId: input.location }
+                        : {
+                              folderId: input.location?.folderId ?? ROOT_FOLDER
+                          },
                 meta: {
                     private: false,
                     ...(input.meta || {})

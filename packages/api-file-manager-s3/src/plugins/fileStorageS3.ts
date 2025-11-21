@@ -52,7 +52,7 @@ export default () => {
                     });
                 },
                 copy: async params => {
-                    const { key, name, type, location } = params;
+                    const { key, name, type } = params;
                     const s3 = new S3();
 
                     if (!key || !S3_BUCKET) {
@@ -65,8 +65,7 @@ export default () => {
                         id,
                         name,
                         type,
-                        size: 0,
-                        keyPrefix: location?.folderId
+                        size: 0
                     });
                     const newKey = fileKey.toString();
 

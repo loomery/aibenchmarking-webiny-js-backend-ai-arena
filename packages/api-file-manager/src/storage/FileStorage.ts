@@ -24,10 +24,8 @@ export interface FileStorageDeleteParams {
 
 export interface FileStorageCopyParams {
     ids: string[];
-    meta?: {
-        location?: {
-            folderId: string;
-        };
+    location?: {
+        folderId: string;
     };
 }
 
@@ -122,7 +120,7 @@ export class FileStorage {
     }
 
     async copyFiles(params: FileStorageCopyParams) {
-        const { ids, meta } = params;
+        const { ids, location } = params;
         const { fileManager } = this.context;
 
         const results = [];
@@ -136,7 +134,7 @@ export class FileStorage {
                 key: original.key,
                 name: original.name,
                 type: original.type,
-                location: meta?.location
+                location
             });
 
             const { ...fileData } = original;
@@ -152,7 +150,7 @@ export class FileStorage {
                 ...fileData,
                 id: newId,
                 key: key,
-                location: meta?.location || original.location,
+                location: location || original.location,
                 aliases: []
             });
             results.push(newFile);
