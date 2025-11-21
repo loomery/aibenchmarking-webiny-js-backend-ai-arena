@@ -396,36 +396,61 @@ export const createFilesCrud = (
             const currentIdentity = getIdentity();
             const currentDateTime = new Date();
 
-            // Create copies with new IDs and updated folder location
-            const filesToCopy: File[] = sourceFiles.map(sourceFile => {
+            // Prepare copied file data with new IDs and keys
+            const copiedFilesData = sourceFiles.map(sourceFile => {
                 const newId = mdbid();
-                const newKey = `${newId}/${sourceFile.key.split("/").slice(1).join("/")}`;
+                const fileNameFromKey = sourceFile.key.split("/").pop() || sourceFile.name;
 
                 return {
-                    ...sourceFile,
                     id: newId,
-                    key: newKey,
+                    key: `${newId}/${fileNameFromKey}`,
+                    name: sourceFile.name,
+                    size: sourceFile.size,
+                    type: sourceFile.type,
+                    meta: { ...sourceFile.meta },
                     location: {
                         folderId: folderId ?? sourceFile.location.folderId
                     },
-                    createdOn: getDate(currentDateTime),
-                    modifiedOn: null,
-                    savedOn: getDate(currentDateTime),
-                    createdBy: utilsGetIdentity(currentIdentity)!,
-                    modifiedBy: null,
-                    savedBy: utilsGetIdentity(currentIdentity)!,
-                    tenant,
-                    locale,
-                    webinyVersion: WEBINY_VERSION
+                    tags: [...sourceFile.tags],
+                    aliases: [],
+                    sourceKey: sourceFile.key
                 };
             });
 
             try {
-                await this.onFileBeforeCopy.publish({ files: filesToCopy, sourceFiles });
-                const results = await storageOperations.files.createBatch({
-                    files: filesToCopy
+                // Create new file records in batch
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const files: File[] = copiedFilesData.map(({ sourceKey, ...data }) => {
+                    return {
+                        ...data,
+                        createdOn: getDate(currentDateTime),
+                        modifiedOn: null,
+                        savedOn: getDate(currentDateTime),
+                        createdBy: utilsGetIdentity(currentIdentity)!,
+                        modifiedBy: null,
+                        savedBy: utilsGetIdentity(currentIdentity)!,
+                        tenant,
+                        locale,
+                        webinyVersion: WEBINY_VERSION
+                    };
                 });
-                await this.onFileAfterCopy.publish({ files: results, sourceFiles });
+
+                // Create a map of new file keys to their source keys for S3 copy operations
+                const sourceKeyMap = new Map(
+                    copiedFilesData.map((data, index) => [files[index].key, data.sourceKey])
+                );
+
+                await this.onFileBeforeBatchCreate.publish({
+                    files,
+                    meta: { operation: "copy", sourceKeyMap }
+                });
+                const results = await storageOperations.files.createBatch({
+                    files
+                });
+                await this.onFileAfterBatchCreate.publish({
+                    files,
+                    meta: { operation: "copy", sourceKeyMap }
+                });
                 return results;
             } catch (ex) {
                 throw new WebinyError(
