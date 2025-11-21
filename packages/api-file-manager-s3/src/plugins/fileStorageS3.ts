@@ -50,7 +50,7 @@ export default () => {
                     });
                 },
                 copy: async params => {
-                    const { key, name, type, size, location } = params;
+                    const { key, name, type, size } = params;
                     const s3 = new S3();
 
                     if (!key || !S3_BUCKET) {
@@ -61,8 +61,7 @@ export default () => {
                     const fileToNormalize: PresignedPostPayloadData = {
                         name,
                         type,
-                        size,
-                        keyPrefix: location?.folderId
+                        size
                     };
                     const normalized = await normalizer.normalizeFile(fileToNormalize);
 

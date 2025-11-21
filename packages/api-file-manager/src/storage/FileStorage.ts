@@ -140,8 +140,7 @@ export class FileStorage {
                 key: original.key,
                 name: original.name,
                 type: original.type,
-                size: original.size,
-                location: targetLocation
+                size: original.size
             });
 
             const copyName = copyResult.name ?? original.name;
