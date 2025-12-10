@@ -1,15 +1,18 @@
-import { parseIdentifier } from "@webiny/utils";
+import { mdbid, parseIdentifier } from "@webiny/utils";
 import WebinyError from "@webiny/error";
 import { NotFoundError } from "@webiny/handler-graphql";
+import { NotAuthorizedError } from "~/utils/errors.js";
 import type {
     CmsContext,
     CmsEntry,
+    CmsEntryComment,
     CmsEntryContext,
     CmsEntryGetParams,
     CmsEntryListParams,
     CmsEntryListWhere,
     CmsEntryMeta,
     CmsEntryValues,
+    CmsIdentity,
     CmsModel,
     CmsStorageEntry,
     CreateCmsEntryInput,
@@ -90,6 +93,7 @@ import {
     restoreEntryFromBinUseCases
 } from "~/crud/contentEntry/useCases/index.js";
 import { ContentEntryTraverser } from "~/utils/contentEntryTraverser/ContentEntryTraverser.js";
+import { getIdentity as getCmsIdentity } from "~/utils/identity.js";
 import type { GenericRecord } from "@webiny/api/types.js";
 import type { SecurityIdentity } from "@webiny/api-core/types/security.js";
 import type { Tenant } from "@webiny/api-core/types/tenancy.js";
@@ -1245,6 +1249,253 @@ export const createContentEntryCrud = (params: CreateContentEntryCrudParams): Cm
         return new ContentEntryTraverser(modelAst);
     };
 
+    const getTenantId = () => {
+        const tenant = getTenant();
+        if (!tenant?.id) {
+            throw new WebinyError("Missing tenant ID.", "TENANT_ERROR");
+        }
+        return tenant.id;
+    };
+
+    const getLocaleCode = () => {
+        const locale = getLocale();
+        if (!locale?.code) {
+            throw new WebinyError("Missing locale code.", "LOCALE_ERROR");
+        }
+        return locale.code;
+    };
+
+    const normalizeEntryId = (id: string): string => {
+        const { id: normalized } = parseIdentifier(id);
+        return normalized;
+    };
+
+    const getEntryForComments = async (model: CmsModel, entryId: string) => {
+        const storageEntry = await getLatestRevisionByEntryIdUseCase.execute(model, {
+            id: normalizeEntryId(entryId)
+        });
+        if (!storageEntry) {
+            throw new NotFoundError(
+                `Entry "${entryId}" of model "${model.modelId}" was not found.`
+            );
+        }
+        return entryFromStorageTransform(context, model, storageEntry);
+    };
+
+    const getCommentById = async (model: CmsModel, commentId: string) => {
+        const comment = await storageOperations.comments.get({
+            tenant: getTenantId(),
+            locale: getLocaleCode(),
+            modelId: model.modelId,
+            id: commentId
+        });
+        if (!comment || comment.modelId !== model.modelId) {
+            throw new NotFoundError(`Comment "${commentId}" was not found.`);
+        }
+        return comment;
+    };
+
+    const ensureCanModifyComment = async (model: CmsModel, comment: CmsEntryComment) => {
+        const canAccessNonOwned = await accessControl.canAccessNonOwnedEntries({ model });
+        if (canAccessNonOwned) {
+            return;
+        }
+        const identity = getSecurityIdentity();
+        if (identity?.id && comment.createdBy?.id === identity.id) {
+            return;
+        }
+        throw new NotAuthorizedError(`Not allowed to modify comment "${comment.id}".`);
+    };
+
+    const createCommentIdentity = () => {
+        const identity = getCmsIdentity(getSecurityIdentity(), null);
+        if (!identity) {
+            throw new WebinyError("Missing identity.", "IDENTITY_ERROR");
+        }
+        return identity;
+    };
+
+    const normalizeMentions = (mentions?: CmsIdentity[] | null): CmsIdentity[] => {
+        if (!Array.isArray(mentions) || mentions.length === 0) {
+            return [];
+        }
+        return mentions
+            .map(mention => getCmsIdentity(mention, null))
+            .filter((mention): mention is CmsIdentity => Boolean(mention));
+    };
+
+    const buildCommentTree = (items: CmsEntryComment[]): CmsEntryComment[] => {
+        const map = new Map<string, CmsEntryComment & { replies: CmsEntryComment[] }>();
+        for (const item of items) {
+            map.set(item.id, {
+                ...item,
+                replies: []
+            });
+        }
+        const roots: CmsEntryComment[] = [];
+        const sorter = (a: CmsEntryComment, b: CmsEntryComment) =>
+            a.createdOn.localeCompare(b.createdOn);
+        map.forEach(comment => {
+            if (comment.parentId && map.has(comment.parentId)) {
+                map.get(comment.parentId)!.replies!.push(comment);
+                return;
+            }
+            roots.push(comment);
+        });
+        const sortRecursive = (nodes: CmsEntryComment[]) => {
+            nodes.sort(sorter);
+            for (const node of nodes) {
+                if (node.replies?.length) {
+                    sortRecursive(node.replies);
+                }
+            }
+        };
+        sortRecursive(roots);
+        return roots;
+    };
+
+    const listEntryComments: CmsEntryContext["listEntryComments"] = async (model, entryId) => {
+        await accessControl.ensureCanAccessEntry({ model, rwd: "r" });
+        const entry = await getEntryForComments(model, entryId);
+        await accessControl.ensureCanAccessEntry({ model, entry, rwd: "r" });
+
+        const comments = await storageOperations.comments.list({
+            tenant: getTenantId(),
+            locale: getLocaleCode(),
+            modelId: model.modelId,
+            entryId: entry.entryId
+        });
+
+        return buildCommentTree(comments);
+    };
+
+    const createEntryComment: CmsEntryContext["createEntryComment"] = async (
+        model,
+        entryId,
+        input
+    ) => {
+        if (!input.body || !input.body.trim()) {
+            throw new WebinyError("Comment body is required.", "COMMENT_BODY_MISSING");
+        }
+
+        await accessControl.ensureCanAccessEntry({ model, rwd: "r" });
+        const entry = await getEntryForComments(model, entryId);
+        await accessControl.ensureCanAccessEntry({ model, entry, rwd: "r" });
+
+        let parentComment: CmsEntryComment | null = null;
+        if (input.parentId) {
+            parentComment = await getCommentById(model, input.parentId);
+            if (parentComment.entryId !== entry.entryId) {
+                throw new WebinyError(
+                    "Cannot attach a comment to a different entry thread.",
+                    "COMMENT_INVALID_PARENT"
+                );
+            }
+        }
+
+        const identity = createCommentIdentity();
+        const mentions = normalizeMentions(input.mentions);
+        const now = new Date().toISOString();
+        const id = mdbid();
+        const comment: CmsEntryComment = {
+            id,
+            entryId: entry.entryId,
+            modelId: model.modelId,
+            tenant: getTenantId(),
+            locale: getLocaleCode(),
+            parentId: parentComment?.id || null,
+            threadId: parentComment ? parentComment.threadId : id,
+            body: input.body,
+            mentions,
+            createdOn: now,
+            createdBy: identity,
+            updatedOn: null,
+            updatedBy: null
+        };
+
+        const created = await storageOperations.comments.create({
+            comment
+        });
+
+        return {
+            ...created,
+            replies: []
+        };
+    };
+
+    const updateEntryComment: CmsEntryContext["updateEntryComment"] = async (
+        model,
+        commentId,
+        input
+    ) => {
+        if (!input.body || !input.body.trim()) {
+            throw new WebinyError("Comment body is required.", "COMMENT_BODY_MISSING");
+        }
+
+        await accessControl.ensureCanAccessEntry({ model, rwd: "r" });
+        const existing = await getCommentById(model, commentId);
+        await ensureCanModifyComment(model, existing);
+
+        const updated: CmsEntryComment = {
+            ...existing,
+            body: input.body,
+            mentions: normalizeMentions(input.mentions),
+            updatedOn: new Date().toISOString(),
+            updatedBy: createCommentIdentity()
+        };
+
+        const result = await storageOperations.comments.update({
+            comment: updated
+        });
+
+        return {
+            ...result,
+            replies: []
+        };
+    };
+
+    const deleteEntryComment: CmsEntryContext["deleteEntryComment"] = async (model, commentId) => {
+        await accessControl.ensureCanAccessEntry({ model, rwd: "r" });
+        const existing = await getCommentById(model, commentId);
+        await ensureCanModifyComment(model, existing);
+
+        const comments = await storageOperations.comments.list({
+            tenant: getTenantId(),
+            locale: getLocaleCode(),
+            modelId: model.modelId,
+            entryId: existing.entryId
+        });
+
+        const childrenMap = new Map<string, CmsEntryComment[]>();
+        for (const comment of comments) {
+            if (!comment.parentId) {
+                continue;
+            }
+            const list = childrenMap.get(comment.parentId) || [];
+            list.push(comment);
+            childrenMap.set(comment.parentId, list);
+        }
+
+        const collectDescendants = (id: string): CmsEntryComment[] => {
+            const direct = childrenMap.get(id) || [];
+            return direct.reduce<CmsEntryComment[]>((acc, child) => {
+                acc.push(child, ...collectDescendants(child.id));
+                return acc;
+            }, []);
+        };
+
+        const targets = [existing, ...collectDescendants(existing.id)];
+        await Promise.all(
+            targets.map(comment =>
+                storageOperations.comments.delete({
+                    comment
+                })
+            )
+        );
+
+        return true;
+    };
+
     return {
         getEntryTraverser,
         onEntryBeforeCreate,
@@ -1478,6 +1729,38 @@ export const createContentEntryCrud = (params: CreateContentEntryCrudParams): Cm
                 "headlessCms.crud.entries.unpublishEntry",
                 async () => {
                     return unpublishEntry(model, id);
+                }
+            );
+        },
+        async listEntryComments(model, entryId) {
+            return context.benchmark.measure(
+                "headlessCms.crud.entries.listEntryComments",
+                async () => {
+                    return listEntryComments(model, entryId);
+                }
+            );
+        },
+        async createEntryComment(model, entryId, input) {
+            return context.benchmark.measure(
+                "headlessCms.crud.entries.createEntryComment",
+                async () => {
+                    return createEntryComment(model, entryId, input);
+                }
+            );
+        },
+        async updateEntryComment(model, commentId, input) {
+            return context.benchmark.measure(
+                "headlessCms.crud.entries.updateEntryComment",
+                async () => {
+                    return updateEntryComment(model, commentId, input);
+                }
+            );
+        },
+        async deleteEntryComment(model, commentId) {
+            return context.benchmark.measure(
+                "headlessCms.crud.entries.deleteEntryComment",
+                async () => {
+                    return deleteEntryComment(model, commentId);
                 }
             );
         },

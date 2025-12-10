@@ -7,11 +7,13 @@ import { createSystemEntity } from "~/definitions/system.js";
 import { createGroupEntity } from "~/definitions/group.js";
 import { createModelEntity } from "~/definitions/model.js";
 import { createEntryEntity } from "~/definitions/entry.js";
+import { createCommentEntity } from "~/definitions/comment.js";
 import { PluginsContainer } from "@webiny/plugins";
 import { createSystemStorageOperations } from "~/operations/system/index.js";
 import { createGroupsStorageOperations } from "~/operations/group/index.js";
 import { createModelsStorageOperations } from "~/operations/model/index.js";
 import { createEntriesStorageOperations } from "./operations/entry/index.js";
+import { createCommentsStorageOperations } from "./operations/comment/index.js";
 
 import { createFilterCreatePlugins } from "~/operations/entry/filtering/plugins/index.js";
 import {
@@ -54,6 +56,11 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             entityName: ENTITIES.ENTRIES,
             table: tableInstance,
             attributes: attributes ? attributes[ENTITIES.ENTRIES] : {}
+        }),
+        comments: createCommentEntity({
+            entityName: ENTITIES.COMMENTS,
+            table: tableInstance,
+            attributes: attributes ? attributes[ENTITIES.COMMENTS] : {}
         })
     };
 
@@ -79,6 +86,9 @@ export const createStorageOperations: StorageOperationsFactory = params => {
     const entries = createEntriesStorageOperations({
         entity: entities.entries,
         plugins
+    });
+    const comments = createCommentsStorageOperations({
+        entity: entities.comments
     });
 
     return {
@@ -120,6 +130,7 @@ export const createStorageOperations: StorageOperationsFactory = params => {
         models: createModelsStorageOperations({
             entity: entities.models
         }),
-        entries
+        entries,
+        comments
     };
 };

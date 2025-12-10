@@ -3,6 +3,9 @@ import type { Topic } from "@webiny/pubsub/types.js";
 import type {
     CmsDeleteEntryOptions,
     CmsEntry,
+    CmsEntryComment,
+    CmsEntryCommentCreateInput,
+    CmsEntryCommentUpdateInput,
     CmsEntryGetParams,
     CmsEntryListParams,
     CmsEntryMeta,
@@ -197,6 +200,30 @@ export interface CmsEntryContext {
      * Get all entry revisions.
      */
     getEntryRevisions: (model: CmsModel, id: string) => Promise<CmsEntry[]>;
+    /**
+     * List all comments for a given entry.
+     */
+    listEntryComments: (model: CmsModel, entryId: string) => Promise<CmsEntryComment[]>;
+    /**
+     * Create a new comment attached to a given entry.
+     */
+    createEntryComment: (
+        model: CmsModel,
+        entryId: string,
+        input: CmsEntryCommentCreateInput
+    ) => Promise<CmsEntryComment>;
+    /**
+     * Update an existing comment.
+     */
+    updateEntryComment: (
+        model: CmsModel,
+        commentId: string,
+        input: CmsEntryCommentUpdateInput
+    ) => Promise<CmsEntryComment>;
+    /**
+     * Delete an existing comment.
+     */
+    deleteEntryComment: (model: CmsModel, commentId: string) => Promise<boolean>;
     /**
      * List all unique values for a given field.
      *

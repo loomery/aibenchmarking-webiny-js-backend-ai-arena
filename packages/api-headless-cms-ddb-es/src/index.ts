@@ -4,6 +4,7 @@ import dynamoDbPlugins from "./dynamoDb/index.js";
 import { createSystemStorageOperations } from "./operations/system/index.js";
 import { createModelsStorageOperations } from "./operations/model/index.js";
 import { createEntriesStorageOperations } from "./operations/entry/index.js";
+import { createCommentsStorageOperations } from "./operations/comment/index.js";
 import type { StorageOperationsFactory } from "~/types.js";
 import { ENTITIES } from "~/types.js";
 import { createTable } from "~/definitions/table.js";
@@ -11,6 +12,7 @@ import { createElasticsearchTable } from "~/definitions/tableElasticsearch.js";
 import { createGroupEntity } from "~/definitions/group.js";
 import { createModelEntity } from "~/definitions/model.js";
 import { createEntryEntity } from "~/definitions/entry.js";
+import { createCommentEntity } from "~/definitions/comment.js";
 import { createEntryElasticsearchEntity } from "~/definitions/entryElasticsearch.js";
 import { createSystemEntity } from "~/definitions/system.js";
 import { createElasticsearchIndex } from "~/elasticsearch/createElasticsearchIndex.js";
@@ -77,6 +79,11 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             table: tableInstance,
             attributes: attributes ? attributes[ENTITIES.ENTRIES] : {}
         }),
+        comments: createCommentEntity({
+            entityName: ENTITIES.COMMENTS,
+            table: tableInstance,
+            attributes: attributes ? attributes[ENTITIES.COMMENTS] : {}
+        }),
         entriesEs: createEntryElasticsearchEntity({
             entityName: ENTITIES.ENTRIES_ES,
             table: tableElasticsearchInstance,
@@ -117,6 +124,9 @@ export const createStorageOperations: StorageOperationsFactory = params => {
         esEntity: entities.entriesEs,
         plugins,
         elasticsearch
+    });
+    const comments = createCommentsStorageOperations({
+        entity: entities.comments
     });
 
     return {
@@ -216,6 +226,7 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             entity: entities.models,
             elasticsearch
         }),
-        entries
+        entries,
+        comments
     };
 };

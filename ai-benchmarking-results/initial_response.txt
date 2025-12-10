@@ -1,0 +1,31 @@
+- Task Understanding and Plan
+       - Rephrase: We need to extend the headless CMS GraphQL API so editorial users can add threaded comments (with user tagging) on CMS entries, including mutations
+    to create, edit, and delete those comments, without touching any frontend code. This means wiring new GraphQL schema/resolvers into the existing Headless CMS 
+   manage API, persisting comment data alongside or adjacent to entries, and ensuring user identity/mentions are handled consistently with current CMS conventions.
+• packages/api-headless-cms/src/graphql/schema/* and related resolver builders (where entry GraphQL types and mutations are defined).
+• Headless CMS storage operation packagestentEntry* plus storage adapters (where entry data is persisted and transformed).
+• Shared types/constants under packages/api-headless-cms/src/types for newt persistence.
+• Tests under packages/api-headless-cms/__tests__ (or feature-specific folders) to cover the new API behavior
+• Current patterns for uselive in entry meta, a separate table, or an existing auxiliary entity.
+• Preferred authorization model for entry-related mutations (probably reuse utilities).
+   existing entry access control hooks).  
+       - Plan:  
+         - Inspect the Headless CMS GraphQL schema/resolver generators (especially manage mutations) to find where to inject comment types and operations.  
+         - Examine contentEntry CRUD + storage layers to understand how entry data and related metadata are stored, and decide where comment records should live.  
+         - Define comment data structures (types, storage DTOs, domain models) and extend CRUD/storage to support create/update/delete/list of threaded comments with 
+   user mentions.  
+         - Implement GraphQL schema additions (types for comments, inputs for creation/update, fields on entries) plus resolvers that call the new CRUD methods.  
+         - Add/update automated tests (unit or integration) covering the new API behavior, focusing on threading/tagging basics and authorization.  
+         - Run relevant test suites (at least targeted headless CMS tests) and perform a self-review for security and contract consistency.
+     - Context Analysis
+       - README.md: High-level overview of Webiny’s serverless CMS platform, confirming the project scope (Headless CMS with GraphQL API) and AWS/serverless stack 
+   context—reinforces that our additions must align with multi-tenant, secure backend services.  
+       - packages/api-headless-cms/src/graphql/schema/contentEntries.ts: Defines GraphQL types/resolvers for fetching entry metadata across models, illustrating 
+   patterns for schema plugins, response shaping, and the meta fields already exposed; this is relevant because new comment types will likely follow similar 
+   plugin/resolver construction and tie into existing entry data retrieval paths.
+     - Proposed Changes
+       - Not started; pending deeper inspection per plan.
+     - Verification and Self-Review
+       - Will determine once implementation approach is finalized (likely via targeted headless CMS tests).
+     - Optional Enhancements
+       - None yet; focus remains on required backend commenting functionality.

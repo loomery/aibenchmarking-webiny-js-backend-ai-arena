@@ -689,6 +689,34 @@ export interface CmsEntry<T = CmsEntryValues> {
     state?: ICmsEntryState;
 }
 
+export interface CmsEntryComment {
+    id: string;
+    entryId: string;
+    modelId: string;
+    tenant: string;
+    locale: string;
+    parentId?: string | null;
+    threadId: string;
+    body: string;
+    mentions: CmsIdentity[];
+    createdOn: string;
+    createdBy: CmsIdentity;
+    updatedOn: string | null;
+    updatedBy: CmsIdentity | null;
+    replies?: CmsEntryComment[];
+}
+
+export interface CmsEntryCommentCreateInput {
+    body: string;
+    parentId?: string | null;
+    mentions?: CmsIdentity[];
+}
+
+export interface CmsEntryCommentUpdateInput {
+    body: string;
+    mentions?: CmsIdentity[];
+}
+
 export interface CmsStorageEntry extends CmsEntry {
     [key: string]: any;
 }
@@ -1959,6 +1987,40 @@ export interface CmsEntryStorageOperationsGetUniqueFieldValuesParams {
     fieldId: string;
 }
 
+export interface CmsEntryCommentStorageOperationsListParams {
+    tenant: string;
+    locale: string;
+    modelId: string;
+    entryId: string;
+}
+
+export interface CmsEntryCommentStorageOperationsGetParams {
+    tenant: string;
+    locale: string;
+    modelId: string;
+    id: string;
+}
+
+export interface CmsEntryCommentStorageOperationsCreateParams {
+    comment: CmsEntryComment;
+}
+
+export interface CmsEntryCommentStorageOperationsUpdateParams {
+    comment: CmsEntryComment;
+}
+
+export interface CmsEntryCommentStorageOperationsDeleteParams {
+    comment: CmsEntryComment;
+}
+
+export interface CmsEntryCommentStorageOperations {
+    list: (params: CmsEntryCommentStorageOperationsListParams) => Promise<CmsEntryComment[]>;
+    get: (params: CmsEntryCommentStorageOperationsGetParams) => Promise<CmsEntryComment | null>;
+    create: (params: CmsEntryCommentStorageOperationsCreateParams) => Promise<CmsEntryComment>;
+    update: (params: CmsEntryCommentStorageOperationsUpdateParams) => Promise<CmsEntryComment>;
+    delete: (params: CmsEntryCommentStorageOperationsDeleteParams) => Promise<void>;
+}
+
 export interface CmsEntryStorageOperationsGetByIdsParams {
     ids: readonly string[];
 }
@@ -2202,6 +2264,7 @@ export interface HeadlessCmsStorageOperations<C = CmsContext> {
     groups: CmsGroupStorageOperations;
     models: CmsModelStorageOperations;
     entries: CmsEntryStorageOperations;
+    comments: CmsEntryCommentStorageOperations;
     /**
      * Either attach something from the storage operations or run something in it.
      */

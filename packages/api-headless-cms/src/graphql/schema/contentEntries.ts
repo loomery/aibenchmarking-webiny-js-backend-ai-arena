@@ -377,6 +377,42 @@ export const createContentEntriesSchema = ({
                 error: CmsError
             }
 
+            type CmsEntryComment {
+                id: ID!
+                entryId: String!
+                modelId: String!
+                parentId: ID
+                threadId: String!
+                body: String!
+                mentions: [CmsIdentity!]
+                createdOn: DateTime!
+                createdBy: CmsIdentity!
+                updatedOn: DateTime
+                updatedBy: CmsIdentity
+                replies: [CmsEntryComment!]
+            }
+
+            input CmsEntryCommentCreateInput {
+                body: String!
+                parentId: ID
+                mentions: [CmsIdentityInput!]
+            }
+
+            input CmsEntryCommentUpdateInput {
+                body: String!
+                mentions: [CmsIdentityInput!]
+            }
+
+            type CmsEntryCommentResponse {
+                data: CmsEntryComment
+                error: CmsError
+            }
+
+            type CmsEntryCommentListResponse {
+                data: [CmsEntryComment!]
+                error: CmsError
+            }
+
             input CmsModelEntryInput {
                 modelId: ID!
                 id: ID!
@@ -403,6 +439,24 @@ export const createContentEntriesSchema = ({
                 getPublishedContentEntries(
                     entries: [CmsModelEntryInput!]!
                 ): CmsContentEntriesResponse!
+
+                listEntryComments(modelId: ID!, entryId: ID!): CmsEntryCommentListResponse!
+            }
+
+            extend type Mutation {
+                createEntryComment(
+                    modelId: ID!
+                    entryId: ID!
+                    data: CmsEntryCommentCreateInput!
+                ): CmsEntryCommentResponse!
+
+                updateEntryComment(
+                    modelId: ID!
+                    commentId: ID!
+                    data: CmsEntryCommentUpdateInput!
+                ): CmsEntryCommentResponse!
+
+                deleteEntryComment(modelId: ID!, commentId: ID!): CmsBooleanResponse!
             }
         `,
         resolvers: {
@@ -510,6 +564,52 @@ export const createContentEntriesSchema = ({
                         context,
                         type: "published"
                     });
+                },
+                async listEntryComments(_, args: any, context) {
+                    try {
+                        const model = await context.cms.getModel(args.modelId);
+                        const comments = await context.cms.listEntryComments(model, args.entryId);
+                        return new Response(comments);
+                    } catch (ex) {
+                        return new ErrorResponse(ex);
+                    }
+                }
+            },
+            Mutation: {
+                async createEntryComment(_, args: any, context) {
+                    try {
+                        const model = await context.cms.getModel(args.modelId);
+                        const comment = await context.cms.createEntryComment(
+                            model,
+                            args.entryId,
+                            args.data
+                        );
+                        return new Response(comment);
+                    } catch (ex) {
+                        return new ErrorResponse(ex);
+                    }
+                },
+                async updateEntryComment(_, args: any, context) {
+                    try {
+                        const model = await context.cms.getModel(args.modelId);
+                        const comment = await context.cms.updateEntryComment(
+                            model,
+                            args.commentId,
+                            args.data
+                        );
+                        return new Response(comment);
+                    } catch (ex) {
+                        return new ErrorResponse(ex);
+                    }
+                },
+                async deleteEntryComment(_, args: any, context) {
+                    try {
+                        const model = await context.cms.getModel(args.modelId);
+                        const result = await context.cms.deleteEntryComment(model, args.commentId);
+                        return new Response(result);
+                    } catch (ex) {
+                        return new ErrorResponse(ex);
+                    }
                 }
             }
         }
