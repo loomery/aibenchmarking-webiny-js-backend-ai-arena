@@ -1,6 +1,6 @@
 import { CmsComment, CmsContext, CmsCommentContext } from "~/types/index.js";
 import WebinyError from "@webiny/error";
-import mdbid from "mdbid";
+import { mdbid } from "@webiny/utils";
 
 export const createCommentsCrud = (context: CmsContext): CmsCommentContext => {
     const { storageOperations } = context.cms;
