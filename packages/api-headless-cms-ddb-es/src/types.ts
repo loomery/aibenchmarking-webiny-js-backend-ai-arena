@@ -154,7 +154,8 @@ export enum ENTITIES {
     GROUPS = "CmsGroups",
     MODELS = "CmsModels",
     ENTRIES = "CmsEntries",
-    ENTRIES_ES = "CmsEntriesElasticsearch"
+    ENTRIES_ES = "CmsEntriesElasticsearch",
+    COMMENTS = "CmsComments"
 }
 
 export interface TableModifier {
@@ -178,7 +179,7 @@ export interface HeadlessCmsStorageOperations extends BaseHeadlessCmsStorageOper
     getTable: () => Table<string, string, string>;
     getEsTable: () => Table<string, string, string>;
     getEntities: () => Record<
-        "system" | "groups" | "models" | "entries" | "entriesEs",
+        "system" | "groups" | "models" | "entries" | "entriesEs" | "comments",
         Entity<any>
     >;
 }

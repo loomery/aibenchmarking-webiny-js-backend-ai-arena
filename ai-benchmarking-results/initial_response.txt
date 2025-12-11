@@ -1,0 +1,53 @@
+- Task Understanding and Plan:
+     The goal is to add a backend commenting system for CMS entries in webiny-js. This involves creating a new data entity
+    for comments, exposing GraphQL operations (create, update, delete, list), and implementing the storage logic in 
+   DynamoDB. I need to ensure the system supports threading (via parentId) and user tagging (via text content).Plan:
+       - Define Types: Update api-headless-cms types to include CmsComment and related interfaces.
+       - Implement Storage (DynamoDB): Create a new Comment entity and storage operations in api-headless-cms-ddb.
+       - Implement Storage (DynamoDB + ES): Replicate the storage logic in api-headless-cms-ddb-es to support projects 
+   using Elasticsearch.
+       - Implement Business Logic: Create a CRUD layer in api-headless-cms to handle validation and authorization.
+       - Implement GraphQL: Define the GraphQL schema and resolvers for comments.
+       - Register Plugins: Wire everything up in the CMS context and GraphQL setup.
+     - Proposed Changes:A. Define Types
+     Modified packages/api-headless-cms/src/types/types.ts to include CmsComment, CmsCommentContext, and 
+   CmsCommentStorageOperations.B. Implement Storage (DynamoDB)
+       - Updated packages/api-headless-cms-ddb/src/types.ts to include COMMENTS entity.
+       - Created packages/api-headless-cms-ddb/src/definitions/comment.ts for the DynamoDB entity.
+       - Created packages/api-headless-cms-ddb/src/operations/comment/index.ts for CRUD operations.
+       - Updated packages/api-headless-cms-ddb/src/index.ts to register the new entity and operations.
+     
+     C. Implement Storage (DynamoDB + ES)
+     
+     
+       - Updated packages/api-headless-cms-ddb-es/src/types.ts.
+       - Copied comment.ts and operations/comment/index.ts to packages/api-headless-cms-ddb-es.
+       - Updated packages/api-headless-cms-ddb-es/src/index.ts.
+     
+     D. Implement Business Logic & GraphQL
+     
+     
+       - Created packages/api-headless-cms/src/comments/crud.ts implementing createCommentsCrud.
+       - Created packages/api-headless-cms/src/comments/graphql.ts defining the schema.
+       - Updated packages/api-headless-cms/src/context.ts to register the CRUD.
+       - Updated packages/api-headless-cms/src/graphql/index.ts to register the GraphQL plugin.
+     - Verification and Self-Review:
+       - Types: Checked for consistency between interfaces and implementations. CmsComment includes tenant, entryId, 
+   modelId which are crucial for multi-tenancy and data isolation.
+       - Storage: Used a PK pattern T#<tenant>#CMS#MODEL#<modelId>#ENTRY#<entryId>#COMMENTS which allows efficient 
+   querying of all comments for a specific entry.
+       - GraphQL: Exposed standard CRUD operations. getComment, updateComment, deleteComment require entryId and modelId 
+   to correctly locate the record in DynamoDB (due to the PK design).
+       - Threading: parentId field in CmsComment allows building threaded UI on the frontend.
+       - Tagging: Supported implicitly via body text.
+       - Security: createCommentsCrud checks for tenant and identity (authentication) before performing operations.
+     
+     Risks:
+     
+     
+       - Performance: Listing comments for an entry is efficient (Query). Getting a single comment by ID requires entryId 
+   and modelId because of the PK structure. This is a trade-off for efficient listing.
+       - Duplication: Had to duplicate storage logic in api-headless-cms-ddb-es because it doesn't depend on 
+   api-headless-cms-ddb. This is consistent with existing architecture.
+     
+     The solution is modular and follows the existing Webiny architecture patterns.

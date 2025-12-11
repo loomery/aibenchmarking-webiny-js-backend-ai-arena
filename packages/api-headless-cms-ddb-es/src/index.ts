@@ -12,10 +12,12 @@ import { createGroupEntity } from "~/definitions/group.js";
 import { createModelEntity } from "~/definitions/model.js";
 import { createEntryEntity } from "~/definitions/entry.js";
 import { createEntryElasticsearchEntity } from "~/definitions/entryElasticsearch.js";
+import { createCommentEntity } from "~/definitions/comment.js";
 import { createSystemEntity } from "~/definitions/system.js";
 import { createElasticsearchIndex } from "~/elasticsearch/createElasticsearchIndex.js";
 import { PluginsContainer } from "@webiny/plugins";
 import { createGroupsStorageOperations } from "~/operations/group/index.js";
+import { createCommentStorageOperations } from "./operations/comment/index.js";
 import { ElasticsearchQueryBuilderOperatorPlugin } from "@webiny/api-elasticsearch";
 import { elasticsearchIndexPlugins } from "./elasticsearch/indices/index.js";
 import { deleteElasticsearchIndex } from "./elasticsearch/deleteElasticsearchIndex.js";
@@ -81,6 +83,11 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             entityName: ENTITIES.ENTRIES_ES,
             table: tableElasticsearchInstance,
             attributes: attributes ? attributes[ENTITIES.ENTRIES_ES] : {}
+        }),
+        comments: createCommentEntity({
+            entityName: ENTITIES.COMMENTS,
+            table: tableInstance,
+            attributes: attributes ? attributes[ENTITIES.COMMENTS] : {}
         })
     };
 
@@ -216,6 +223,9 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             entity: entities.models,
             elasticsearch
         }),
-        entries
+        entries,
+        comments: createCommentStorageOperations({
+            entity: entities.comments
+        })
     };
 };

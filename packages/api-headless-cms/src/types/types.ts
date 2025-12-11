@@ -39,11 +39,25 @@ export interface CmsError {
 
 export type ApiEndpoint = "manage" | "preview" | "read";
 
+export interface CmsCommentContext {
+    getComment: (id: string, entryId: string, modelId: string) => Promise<CmsComment>;
+    listComments: (entryId: string, modelId: string) => Promise<CmsComment[]>;
+    createComment: (data: CmsCommentCreateInput) => Promise<CmsComment>;
+    updateComment: (
+        id: string,
+        entryId: string,
+        modelId: string,
+        data: CmsCommentUpdateInput
+    ) => Promise<CmsComment>;
+    deleteComment: (id: string, entryId: string, modelId: string) => Promise<boolean>;
+}
+
 export interface HeadlessCms
     extends CmsSystemContext,
         CmsGroupContext,
         CmsModelContext,
-        CmsEntryContext {
+        CmsEntryContext,
+        CmsCommentContext {
     /**
      * API type
      */
@@ -2196,12 +2210,57 @@ export interface CmsSystemStorageOperations {
     update: (params: CmsSystemStorageOperationsUpdateParams) => Promise<CmsSystem>;
 }
 
+export interface CmsComment {
+    id: string;
+    tenant: string;
+    entryId: string;
+    modelId: string;
+    parentId?: string;
+    body: string;
+    mentions?: string[];
+    author: CmsIdentity;
+    createdOn: string;
+    updatedOn?: string;
+}
+
+export interface CmsCommentCreateInput {
+    entryId: string;
+    modelId: string;
+    parentId?: string;
+    body: string;
+    mentions?: string[];
+}
+
+export interface CmsCommentUpdateInput {
+    body: string;
+    mentions?: string[];
+}
+
+export interface CmsCommentStorageOperations {
+    get: (params: {
+        id: string;
+        entryId: string;
+        modelId: string;
+        tenant: string;
+    }) => Promise<CmsComment | null>;
+    list: (params: { entryId: string; modelId: string; tenant: string }) => Promise<CmsComment[]>;
+    create: (comment: CmsComment) => Promise<CmsComment>;
+    update: (comment: CmsComment) => Promise<CmsComment>;
+    delete: (params: {
+        id: string;
+        entryId: string;
+        modelId: string;
+        tenant: string;
+    }) => Promise<boolean>;
+}
+
 export interface HeadlessCmsStorageOperations<C = CmsContext> {
     name: string;
     system: CmsSystemStorageOperations;
     groups: CmsGroupStorageOperations;
     models: CmsModelStorageOperations;
     entries: CmsEntryStorageOperations;
+    comments: CmsCommentStorageOperations;
     /**
      * Either attach something from the storage operations or run something in it.
      */

@@ -40,7 +40,8 @@ export enum ENTITIES {
     SYSTEM = "CmsSystem",
     GROUPS = "CmsGroups",
     MODELS = "CmsModels",
-    ENTRIES = "CmsEntries"
+    ENTRIES = "CmsEntries",
+    COMMENTS = "CmsComments"
 }
 
 export interface TableModifier {
@@ -56,7 +57,7 @@ export interface StorageOperationsFactoryParams {
 
 export interface HeadlessCmsStorageOperations extends BaseHeadlessCmsStorageOperations {
     getTable: () => Table<string, string, string>;
-    getEntities: () => Record<"system" | "groups" | "models" | "entries", Entity<any>>;
+    getEntities: () => Record<"system" | "groups" | "models" | "entries" | "comments", Entity<any>>;
 }
 
 export interface StorageOperationsFactory {
