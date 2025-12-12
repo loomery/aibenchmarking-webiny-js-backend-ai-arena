@@ -11,7 +11,6 @@ export const createCommentsCrud = (
     context: CmsContext,
     storageOperations: HeadlessCmsStorageOperations
 ): CmsCommentContext => {
-
     const getTenant = () => {
         const tenant = context.tenancy.getCurrentTenant();
         if (!tenant) {
@@ -51,7 +50,11 @@ export const createCommentsCrud = (
                 mentions: input.mentions || [],
                 id,
                 tenant,
-                author: identity,
+                author: {
+                    id: identity.id,
+                    displayName: identity.displayName,
+                    type: identity.type
+                },
                 createdOn: new Date().toISOString()
             };
 

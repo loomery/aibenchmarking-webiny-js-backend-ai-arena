@@ -1,8 +1,8 @@
 import { CmsContext } from "~/types/index.js";
-import { GraphQLSchemaPlugin } from "@webiny/handler-graphql";
+import { createCmsGraphQLSchemaPlugin } from "~/plugins/index.js";
 
 export const createCommentsGraphQL = () => {
-    return new GraphQLSchemaPlugin<CmsContext>({
+    return createCmsGraphQLSchemaPlugin<CmsContext>({
         typeDefs: /* GraphQL */ `
             type CmsCommentAuthor {
                 id: String
