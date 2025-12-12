@@ -4,6 +4,7 @@ import dynamoDbPlugins from "./dynamoDb/index.js";
 import { createSystemStorageOperations } from "./operations/system/index.js";
 import { createModelsStorageOperations } from "./operations/model/index.js";
 import { createEntriesStorageOperations } from "./operations/entry/index.js";
+import { createCommentsStorageOperations } from "./operations/comment/index.js";
 import type { StorageOperationsFactory } from "~/types.js";
 import { ENTITIES } from "~/types.js";
 import { createTable } from "~/definitions/table.js";
@@ -119,6 +120,10 @@ export const createStorageOperations: StorageOperationsFactory = params => {
         elasticsearch
     });
 
+    const comments = createCommentsStorageOperations({
+        entity: entities.entries // Using same entity/table for comments
+    });
+
     return {
         name: "dynamodb:elasticsearch",
         beforeInit: async context => {
@@ -216,6 +221,7 @@ export const createStorageOperations: StorageOperationsFactory = params => {
             entity: entities.models,
             elasticsearch
         }),
-        entries
+        entries,
+        comments
     };
 };

@@ -3,6 +3,7 @@ import type {
     CmsContext as BaseCmsContext,
     CmsEntry,
     CmsEntryStorageOperations as BaseCmsEntryStorageOperations,
+    CmsEntryCommentStorageOperations as BaseCmsEntryCommentStorageOperations,
     CmsModel,
     CmsModelField,
     CmsModelFieldToGraphQLPlugin,
@@ -197,3 +198,5 @@ export interface DataLoadersHandlerInterfaceClearAllParams {
 export interface DataLoadersHandlerInterface {
     clearAll: (params?: DataLoadersHandlerInterfaceClearAllParams) => void;
 }
+
+export type CmsEntryCommentStorageOperations = BaseCmsEntryCommentStorageOperations;

@@ -87,39 +87,18 @@ export const createCommentsStorageOperations = (
 
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         async delete(model: CmsModel, id: string): Promise<boolean> {
-            // This is a placeholder - in reality, we do soft deletes via update
-            // This method won't actually be called based on our CRUD implementation
             throw new WebinyError(
                 "Direct delete is not supported. Use update with deletedOn field.",
                 "DELETE_NOT_SUPPORTED"
             );
         },
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         async get(model: CmsModel, id: string): Promise<CmsEntryComment | null> {
-            // Since we don't know entryId here, we need to use a different query approach
-            // For now, we'll use a GSI or scan. Let's use query with just SK for simplicity
-            // In production, this would need proper indexing
-
-            try {
-                // This is a simplified approach - in production we'd need a GSI on comment ID
-                // For now, we'll throw an error indicating the limitation
-                throw new WebinyError(
-                    "Get by ID requires entryId context. Use list with entryId filter.",
-                    "GET_BY_ID_NOT_IMPLEMENTED"
-                );
-            } catch (error) {
-                if (error.code === "GET_BY_ID_NOT_IMPLEMENTED") {
-                    throw error;
-                }
-                throw new WebinyError(
-                    error.message || "Could not get comment from DynamoDB.",
-                    error.code || "GET_COMMENT_ERROR",
-                    {
-                        error,
-                        id
-                    }
-                );
-            }
+            throw new WebinyError(
+                "Get by ID requires entryId context. Use list with entryId filter.",
+                "GET_BY_ID_NOT_IMPLEMENTED"
+            );
         },
 
         async list(
