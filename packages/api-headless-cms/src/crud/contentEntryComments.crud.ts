@@ -37,7 +37,7 @@ interface ContentEntryCommentsCrudContextObject {
 }
 
 const checkModelAccess = async (context: CmsContext, model: CmsModel) => {
-    await context.accessControl.ensureCanAccessEntry({ rwd: "r", model });
+    await context.cms.accessControl.ensureCanAccessEntry({ rwd: "r", model });
 };
 
 const extractMentions = (body: string): string[] => {
@@ -114,7 +114,7 @@ export const createContentEntryCommentsCrud = (
 
             // Validate that the entry exists
             try {
-                await this.context.getEntryById(model, input.entryId);
+                await this.context.cms.getEntryById(model, input.entryId);
             } catch {
                 throw new NotFoundError(`Entry "${input.entryId}" not found.`);
             }

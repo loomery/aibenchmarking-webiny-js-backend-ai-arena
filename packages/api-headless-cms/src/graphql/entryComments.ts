@@ -1,4 +1,9 @@
-import { ErrorResponse, GraphQLSchemaPlugin, Response } from "@webiny/handler-graphql";
+import {
+    ErrorResponse,
+    GraphQLSchemaPlugin,
+    Response,
+    ListResponse
+} from "@webiny/handler-graphql";
 import type { CmsContext } from "~/types/index.js";
 import type {
     CmsEntryCommentListParams,
@@ -131,7 +136,7 @@ const plugin = new GraphQLSchemaPlugin<CmsContext>({
 
                     const [comments, meta] = await context.cms.listEntryComments(model, args.where);
 
-                    return new Response(comments, meta);
+                    return new ListResponse(comments, meta);
                 } catch (error) {
                     return new ErrorResponse(error);
                 }
