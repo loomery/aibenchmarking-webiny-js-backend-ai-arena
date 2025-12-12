@@ -8,3 +8,4 @@ export type * from "./modelGroup.js";
 export type * from "./plugins.js";
 export type * from "./fields/dynamicZoneField.js";
 export type * from "./fields/objectField.js";
+export type * from "./comments.js";

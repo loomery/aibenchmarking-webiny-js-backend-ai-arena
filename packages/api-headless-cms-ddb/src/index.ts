@@ -12,6 +12,7 @@ import { createSystemStorageOperations } from "~/operations/system/index.js";
 import { createGroupsStorageOperations } from "~/operations/group/index.js";
 import { createModelsStorageOperations } from "~/operations/model/index.js";
 import { createEntriesStorageOperations } from "./operations/entry/index.js";
+import { createCommentsStorageOperations } from "./operations/comment/index.js";
 
 import { createFilterCreatePlugins } from "~/operations/entry/filtering/plugins/index.js";
 import {
@@ -81,6 +82,10 @@ export const createStorageOperations: StorageOperationsFactory = params => {
         plugins
     });
 
+    const comments = createCommentsStorageOperations({
+        entity: entities.entries // Using same entity/table for comments
+    });
+
     return {
         name: "dynamodb",
         beforeInit: async context => {
@@ -120,6 +125,7 @@ export const createStorageOperations: StorageOperationsFactory = params => {
         models: createModelsStorageOperations({
             entity: entities.models
         }),
-        entries
+        entries,
+        comments
     };
 };

@@ -10,6 +10,7 @@ import { createSystemCrud } from "~/crud/system.crud.js";
 import { createModelGroupsCrud } from "~/crud/contentModelGroup.crud.js";
 import { createModelsCrud } from "~/crud/contentModel.crud.js";
 import { createContentEntryCrud } from "~/crud/contentEntry.crud.js";
+import { createContentEntryCommentsCrud } from "~/crud/contentEntryComments.crud.js";
 import { StorageOperationsCmsModelPlugin } from "~/plugins/index.js";
 import { createCmsModelFieldConvertersAttachFactory } from "~/utils/converters/valueKeyStorageConverter.js";
 import { createExportCrud } from "~/export/index.js";
@@ -150,6 +151,13 @@ export const createContextPlugin = ({ storageOperations }: CrudParams) => {
                     getLocale,
                     storageOperations,
                     accessControl
+                }),
+                ...createContentEntryCommentsCrud({
+                    storageOperations,
+                    accessControl,
+                    getTenant,
+                    getLocale,
+                    getIdentity
                 }),
                 export: {
                     ...createExportCrud(context)

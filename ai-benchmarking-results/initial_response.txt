@@ -1,0 +1,131 @@
+1. TASK UNDERSTANDING AND PLAN
+
+   Task Rephrasing
+
+   I need to implement a commenting system for CMS entries that enables editorial discussions and feedback. This requires:
+
+     - Creating a complete GraphQL API for managing comments (create, edit, delete)
+     - Supporting threaded comments (replies to comments)
+     - Supporting user tagging/mentions
+     - Backend-only implementation (no UI changes)
+
+   The comments will be associated with CMS entries (identified by entry ID) and should follow Webiny's existing patterns
+   for:
+
+     - Storage operations (DynamoDB-based)
+     - GraphQL schema generation
+     - Context-based API access
+     - Identity/security integration
+     - Tenant and locale awareness
+
+   Architecture Connection
+
+   Based on my analysis:
+
+     - CMS Entry Structure: Entries have entryId and id (revision), with tenant/locale scoping
+     - GraphQL Pattern: The codebase uses plugin-based schema generation with separate CRUD operations
+     - Storage Pattern: Uses storage operations interfaces with DynamoDB implementations
+     - Context Pattern: Features extend the main context object with typed interfaces
+     - Identity/Security: Built-in identity system (CmsIdentity) tracks who performs actions
+
+   Files/Modules Likely Involved
+
+     - New files to create:
+       - packages/api-headless-cms/src/crud/contentEntryComments/ - CRUD operations
+       - packages/api-headless-cms/src/types/comments.ts - TypeScript interfaces
+       - packages/api-headless-cms/src/graphql/comments/ - GraphQL schema and resolvers
+       - packages/api-headless-cms/src/storage/operations/comments/ - Storage interfaces
+     - Files to modify:
+       - packages/api-headless-cms/src/types/context.ts - Add comment context methods
+       - packages/api-headless-cms/src/types/index.ts - Export comment types
+       - packages/api-headless-cms/src/context.ts - Wire up comment CRUD
+       - packages/api-headless-cms/src/index.ts - Export comment utilities
+
+   Concrete Plan (8 steps)
+
+     - Define TypeScript interfaces for comments in types file:
+       - CmsEntryComment interface (id, entryId, body, parentId, mentions, createdBy, etc.)
+       - Context methods interface (CmsEntryCommentContext)
+       - Storage operations interface
+       - GraphQL input/output types
+     - Implement storage operations interface:
+       - Define abstract storage operations for comments (create, update, delete, list)
+       - Follow pattern from CmsEntryStorageOperations
+     - Create CRUD operations for comments:
+       - createComment, updateComment, deleteComment, listComments, getComment
+       - Handle threaded comments (parentId relationship)
+       - Validate user mentions
+       - Apply tenant/locale/identity context
+     - Build GraphQL schema:
+       - Create type definitions (Comment, CommentInput, mutations, queries)
+       - Follow pattern from entry management schema
+       - Support filtering, pagination, threaded retrieval
+     - Implement GraphQL resolvers:
+       - Map GraphQL operations to CRUD methods
+       - Handle user tagging resolution
+       - Ensure proper error handling
+     - Integrate into context:
+       - Add comment methods to CMS context
+       - Wire up in context plugin creation
+     - Add DynamoDB storage implementation (in api-headless-cms-ddb package):
+       - Implement the storage operations interface
+       - Design table structure (PK: entryId, SK: commentId)
+       - Support GSI for threading queries
+     - Create tests:
+       - Unit tests for CRUD operations
+       - Integration tests for GraphQL API
+       - Test threading and mentions
+
+   Missing Information
+
+     - Storage backend: Which storage implementation to use (DynamoDB only, or DDB+ES?)
+     - Permission model: Should comments have separate permissions or inherit from entry permissions?
+     - Notification system: Should user mentions trigger notifications?
+
+   Assumptions:
+
+     - Comments are tenant and locale-scoped like entries
+     - Comments use the existing identity system
+     - Basic permission model: if you can view an entry, you can comment
+     - No real-time features (GraphQL subscriptions) for now
+     - Using DynamoDB storage pattern (can be extended to ES later)
+
+   -------------------------------------------------------------------------------------------------------------------------
+
+   2. CONTEXT ANALYSIS
+
+   The Webiny Headless CMS follows a layered architecture:
+
+   Layers identified:
+
+     - Types Layer (src/types/) - TypeScript interfaces defining contracts
+     - CRUD Layer (src/crud/) - Business logic for operations
+     - Storage Layer (src/storage/) - Abstract storage interfaces
+     - GraphQL Layer (src/graphql/) - Schema generation and resolvers
+     - Context Layer - Dependency injection via context object
+     - Plugins Layer - Plugin-based extensibility
+
+   Key patterns:
+
+     - Plugin-based: Everything extends via plugins (schema, validators, converters)
+     - Context injection: Operations access dependencies via typed context
+     - Storage abstraction: Storage operations are interfaces, implementations in separate packages
+     - Identity tracking: All mutations track who performed them via CmsIdentity
+     - Multi-tenancy: Everything is scoped by tenant + locale
+
+   Data flow for a typical mutation:
+
+     - GraphQL resolver receives request
+     - Resolver calls CRUD method on context
+     - CRUD validates, applies business logic
+     - CRUD calls storage operations
+     - Storage persists to database
+     - Response flows back through layers
+
+   This is relevant because comments should follow the exact same pattern.
+
+   -------------------------------------------------------------------------------------------------------------------------
+
+   3. PROPOSED CHANGES
+
+   I'll now implement the commenting system following Webiny's architecture patterns.

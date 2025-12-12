@@ -1,6 +1,7 @@
 import type { Plugin } from "@webiny/plugins/types.js";
 import type {
     CmsEntryStorageOperations as BaseCmsEntryStorageOperations,
+    CmsEntryCommentStorageOperations as BaseCmsEntryCommentStorageOperations,
     CmsModel,
     CmsModelField,
     HeadlessCmsStorageOperations as BaseHeadlessCmsStorageOperations
@@ -73,3 +74,5 @@ export interface DataLoadersHandlerInterfaceClearAllParams {
 export interface DataLoadersHandlerInterface {
     clearAll: (params?: DataLoadersHandlerInterfaceClearAllParams) => void;
 }
+
+export type CmsEntryCommentStorageOperations = BaseCmsEntryCommentStorageOperations;

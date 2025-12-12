@@ -14,6 +14,7 @@ import type { AccessControl } from "~/crud/AccessControl/AccessControl.js";
 import type { CmsModelToAstConverter } from "~/utils/contentModelAst/CmsModelToAstConverter.js";
 import type { CmsModelFieldToGraphQLPlugin } from "./plugins.js";
 import type { CmsEntryContext } from "./context.js";
+import type { CmsEntryCommentContext, CmsEntryCommentStorageOperations } from "./comments.js";
 import type { CmsModelField, CmsModelFieldValidation, CmsModelUpdateInput } from "./modelField.js";
 import type { CmsModel, CmsModelCreateFromInput, CmsModelCreateInput } from "./model.js";
 import type { CmsGroup } from "./modelGroup.js";
@@ -43,7 +44,8 @@ export interface HeadlessCms
     extends CmsSystemContext,
         CmsGroupContext,
         CmsModelContext,
-        CmsEntryContext {
+        CmsEntryContext,
+        CmsEntryCommentContext {
     /**
      * API type
      */
@@ -2202,6 +2204,7 @@ export interface HeadlessCmsStorageOperations<C = CmsContext> {
     groups: CmsGroupStorageOperations;
     models: CmsModelStorageOperations;
     entries: CmsEntryStorageOperations;
+    comments: CmsEntryCommentStorageOperations;
     /**
      * Either attach something from the storage operations or run something in it.
      */
