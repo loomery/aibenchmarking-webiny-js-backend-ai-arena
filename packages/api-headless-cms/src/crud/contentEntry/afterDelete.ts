@@ -3,15 +3,20 @@
  * It creates problems when doing mass deletes on DDB only systems with a lot of entries.
  */
 import type { Topic } from "@webiny/pubsub/types.js";
-import type { CmsContext, OnEntryAfterDeleteTopicParams } from "~/types/index.js";
+import type {
+    CmsContext,
+    HeadlessCmsStorageOperations,
+    OnEntryAfterDeleteTopicParams
+} from "~/types/index.js";
 import { markUnlockedFields } from "./markLockedFields.js";
 
 interface AssignAfterEntryDeleteParams {
     context: CmsContext;
+    storageOperations: HeadlessCmsStorageOperations;
     onEntryAfterDelete: Topic<OnEntryAfterDeleteTopicParams>;
 }
 export const assignAfterEntryDelete = (params: AssignAfterEntryDeleteParams) => {
-    const { context, onEntryAfterDelete } = params;
+    const { context, storageOperations, onEntryAfterDelete } = params;
 
     onEntryAfterDelete.subscribe(async params => {
         const { entry, model, permanent } = params;
@@ -23,7 +28,7 @@ export const assignAfterEntryDelete = (params: AssignAfterEntryDeleteParams) => 
         if (!permanent || !model.isPlugin) {
             return;
         }
-        const { items } = await context.cms.storageOperations.entries.list(model, {
+        const { items } = await storageOperations.entries.list(model, {
             where: {
                 entryId_not: entry.entryId,
                 latest: true

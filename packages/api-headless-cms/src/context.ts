@@ -152,7 +152,7 @@ export const createContextPlugin = ({ storageOperations }: CrudParams) => {
                     storageOperations,
                     accessControl
                 }),
-                ...createCommentsCrud(context),
+                ...createCommentsCrud(context, storageOperations),
                 export: {
                     ...createExportCrud(context)
                 },

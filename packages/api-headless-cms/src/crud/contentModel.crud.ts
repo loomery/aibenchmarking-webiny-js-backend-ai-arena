@@ -529,7 +529,7 @@ export const createModelsCrud = (params: CreateModelsCrudParams): CmsModelContex
         /**
          * Use storage operations directly because we cannot get group from different locale via context methods.
          */
-        const group = await context.cms.storageOperations.groups.get({
+        const group = await storageOperations.groups.get({
             id: data.group,
             tenant: original.tenant,
             locale: locale.code

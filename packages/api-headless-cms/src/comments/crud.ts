@@ -1,9 +1,16 @@
-import { CmsComment, CmsContext, CmsCommentContext } from "~/types/index.js";
+import {
+    CmsComment,
+    CmsContext,
+    CmsCommentContext,
+    HeadlessCmsStorageOperations
+} from "~/types/index.js";
 import WebinyError from "@webiny/error";
 import { mdbid } from "@webiny/utils";
 
-export const createCommentsCrud = (context: CmsContext): CmsCommentContext => {
-    const { storageOperations } = context.cms;
+export const createCommentsCrud = (
+    context: CmsContext,
+    storageOperations: HeadlessCmsStorageOperations
+): CmsCommentContext => {
 
     const getTenant = () => {
         const tenant = context.tenancy.getCurrentTenant();

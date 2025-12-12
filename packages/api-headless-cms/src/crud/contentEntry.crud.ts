@@ -258,6 +258,7 @@ export const createContentEntryCrud = (params: CreateContentEntryCrudParams): Cm
     });
     assignAfterEntryDelete({
         context,
+        storageOperations,
         onEntryAfterDelete
     });
 
