@@ -67,9 +67,18 @@ const plugin = new GraphQLSchemaPlugin<CmsContext>({
             error: CmsError
         }
 
-        type CmsBooleanResponse {
+        type CmsEntryCommentDeleteResponse {
             data: Boolean
             error: CmsError
+        }
+
+        # Define CmsQuery and CmsMutation if they don't exist yet
+        type CmsQuery {
+            _empty: String
+        }
+
+        type CmsMutation {
+            _empty: String
         }
 
         extend type CmsQuery {
@@ -95,7 +104,7 @@ const plugin = new GraphQLSchemaPlugin<CmsContext>({
                 data: CmsUpdateEntryCommentInput!
             ): CmsEntryCommentResponse
             # Delete a comment (soft delete)
-            deleteEntryComment(modelId: ID!, id: ID!): CmsBooleanResponse
+            deleteEntryComment(modelId: ID!, id: ID!): CmsEntryCommentDeleteResponse
         }
     `,
     resolvers: {
