@@ -1,5 +1,9 @@
-import { ErrorResponse, ListResponse, Response } from "@webiny/handler-graphql";
-import { createCmsGraphQLSchemaPlugin } from "~/plugins/index.js";
+import {
+    ErrorResponse,
+    GraphQLSchemaPlugin,
+    ListResponse,
+    Response
+} from "@webiny/handler-graphql";
 import type { CmsContext } from "~/types/index.js";
 import type {
     CmsEntryCommentListParams,
@@ -7,7 +11,7 @@ import type {
     UpdateCmsEntryCommentInput
 } from "~/types/index.js";
 
-const plugin = createCmsGraphQLSchemaPlugin<CmsContext>({
+const plugin = new GraphQLSchemaPlugin<CmsContext>({
     typeDefs: /* GraphQL */ `
         type CmsEntryComment {
             id: ID!

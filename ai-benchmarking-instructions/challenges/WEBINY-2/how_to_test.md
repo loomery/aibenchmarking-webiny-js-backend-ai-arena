@@ -3,7 +3,7 @@
 **Prerequisite:** Ensure that you have the AWS CLI configured on your machine with your AWS account (your project will need to be deployed to AWS)
 
 1. After running the initial prompt (which should add the new commenting API to the framework repo) - first **commit** the changes. *(critical as otherwise you may lose them in the next steps)*
-2. Run `yarn build`
+2. Run `yarn build --no-cache`
 3. Next, you will need to generate a new Webiny project that uses the updated framework, or if you have done this in a previous step - update the existing Webiny project. Before you can generate/update the project, you will need to publish the updated framework repo to a local Verdaccio registry. Run `yarn verdaccio:start` – you’ll see Verdaccio logs ending with `“http address http://localhost:4873/”`.
 4. Publish all packages to that registry:    
     ```
