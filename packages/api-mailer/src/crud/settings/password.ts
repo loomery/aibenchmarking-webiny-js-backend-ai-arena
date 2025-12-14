@@ -9,7 +9,7 @@ interface Params {
 export const decrypt = (params: Params): string => {
     const { value, secret } = params;
     if (!secret) {
-        throw new WebinyError(`Cannot call decrypt without passing the secret.`);
+        throw new WebinyError("Cannot call decrypt without passing the secret.");
     }
     if (!value) {
         return "";
@@ -18,28 +18,28 @@ export const decrypt = (params: Params): string => {
         const bytes = CryptoJS.AES.decrypt(value, secret);
         const result = bytes.toString(CryptoJS.enc.Utf8);
         if (!result) {
-            console.log(`Error while converting decrypted password bytes into string. `);
+            console.error("Error while converting decrypted password bytes into string.");
             return "";
         }
         return result;
-    } catch {
-        console.log(`Could not decrypt given encrypted password.`);
+    } catch (e) {
+        console.error("Could not decrypt given encrypted password.", e);
+        return "";
     }
-    return "";
 };
 
 export const encrypt = (params: Params): string => {
     const { value, secret } = params;
     if (!secret) {
-        throw new WebinyError(`Cannot call decrypt without passing the secret.`);
+        throw new WebinyError("Cannot call encrypt without passing the secret.");
     }
     if (!value) {
         return "";
     }
     try {
         return CryptoJS.AES.encrypt(value, secret).toString();
-    } catch {
-        console.log(`Could not encrypt given password.`);
+    } catch (e) {
+        console.error("Could not encrypt given password.", e);
+        return "";
     }
-    return "";
 };
