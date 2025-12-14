@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import WebinyError from "@webiny/error";
 import { decrypt, encrypt } from "~/crud/settings/password";
 
 const secret = "someReallySecretSecretWithRandomNumbersOrLettersOrSomethingElse";
@@ -19,7 +20,45 @@ describe("password decrypt and encrypt", () => {
         });
 
         expect(decryptResult).toEqual(password);
-        console.info();
+    });
+
+    it("should return empty string when value is missing", () => {
+        expect(
+            encrypt({
+                secret,
+                value: undefined
+            })
+        ).toBe("");
+
+        expect(
+            decrypt({
+                secret,
+                value: undefined
+            })
+        ).toBe("");
+    });
+
+    it("should require the secret parameter", () => {
+        expect(() =>
+            encrypt({
+                value: password
+            })
+        ).toThrow(WebinyError);
+
+        expect(() =>
+            decrypt({
+                value: password
+            })
+        ).toThrow(WebinyError);
+    });
+
+    it("should throw when encrypted value cannot be decoded", () => {
+        expect(() =>
+            decrypt({
+                secret,
+                value: "invalid-value"
+            })
+        ).toThrow(WebinyError);
     });
     /**
      * All these values are encrypted "password" word.

@@ -1,0 +1,4 @@
+Issues: duplicate “decrypt” wording in encrypt error, inconsistent handling of missing values, swallowing errors with console.log, and lack of
+   typing/documentation reduces maintainability. Refactor plan: introduce shared guard/helper for secret/value validation with clearer error messages, replace
+   console logging with structured errors (or return types) and allow upstream handling, and add unit tests plus docs to clarify empty-string behavior. Consider
+   extracting crypto operations behind a small service interface to allow future algorithm changes/testing.
