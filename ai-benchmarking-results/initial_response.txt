@@ -1,0 +1,297 @@
+Plan for Bulk Tagging Feature - GraphQL API
+
+   Overview
+
+   Add GraphQL mutations to add/remove tags from multiple files at once in the File Manager, following Webiny's
+   existing patterns for file operations.
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   1. Type Definitions (packages/api-file-manager/src/types.ts)
+
+   Add new types:
+
+     // Bulk tag operation input
+     export interface BulkTagInput {
+         ids: string[];           // Array of file IDs to update
+         tags: string[];          // Tags to add or remove
+     }
+     
+     // Bulk tag response
+     export interface BulkTagResponse {
+         success: string[];       // IDs of successfully updated files
+         failed: Array<{          // IDs of files that failed with reasons
+             id: string;
+             error: string;
+         }>;
+     }
+
+   Update FilesCRUD interface:
+
+     export interface FilesCRUD extends FileLifecycleEvents {
+         // ... existing methods ...
+         bulkAddTags(input: BulkTagInput): Promise<BulkTagResponse>;
+         bulkRemoveTags(input: BulkTagInput): Promise<BulkTagResponse>;
+     }
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   2. GraphQL Schema (packages/api-file-manager/src/graphql/createFilesTypeDefs.ts)
+
+   Add type definitions:
+
+     input FmBulkTagInput {
+         ids: [ID!]!
+         tags: [String!]!
+     }
+     
+     type FmBulkTagResult {
+         id: ID!
+         error: String
+     }
+     
+     type FmBulkTagResponse {
+         success: [ID!]!
+         failed: [FmBulkTagResult!]!
+     }
+     
+     type FmBulkTagResponseData {
+         data: FmBulkTagResponse
+         error: FmError
+     }
+     
+     extend type FmMutation {
+         bulkAddTags(input: FmBulkTagInput!): FmBulkTagResponseData!
+         bulkRemoveTags(input: FmBulkTagInput!): FmBulkTagResponseData!
+     }
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   3. CRUD Implementation (packages/api-file-manager/src/createFileManager/files.crud.ts)
+
+   Add two new methods to the returned FilesCRUD object:
+
+     async bulkAddTags(input: BulkTagInput): Promise<BulkTagResponse> {
+         await filesPermissions.ensure({ rwd: "w" });
+         
+         const { ids, tags } = input;
+         const response: BulkTagResponse = { success: [], failed: [] };
+         
+         // Process each file
+         for (const id of ids) {
+             try {
+                 // Get the file
+                 const file = await storageOperations.files.get({
+                     where: { id, tenant: getTenantId(), locale: getLocaleCode() }
+                 });
+                 
+                 if (!file) {
+                     response.failed.push({ id, error: `File not found` });
+                     continue;
+                 }
+                 
+                 // Check ownership permission
+                 await filesPermissions.ensure({ owns: file.createdBy });
+                 
+                 // Merge tags (avoid duplicates)
+                 const existingTags = Array.isArray(file.tags) ? file.tags : [];
+                 const newTags = [...new Set([...existingTags, ...tags])];
+                 
+                 // Update file with new tags
+                 await this.updateFile(id, { tags: newTags });
+                 response.success.push(id);
+                 
+             } catch (error) {
+                 response.failed.push({ 
+                     id, 
+                     error: error.message || "Failed to add tags" 
+                 });
+             }
+         }
+         
+         return response;
+     }
+     
+     async bulkRemoveTags(input: BulkTagInput): Promise<BulkTagResponse> {
+         await filesPermissions.ensure({ rwd: "w" });
+         
+         const { ids, tags } = input;
+         const response: BulkTagResponse = { success: [], failed: [] };
+         
+         // Process each file
+         for (const id of ids) {
+             try {
+                 // Get the file
+                 const file = await storageOperations.files.get({
+                     where: { id, tenant: getTenantId(), locale: getLocaleCode() }
+                 });
+                 
+                 if (!file) {
+                     response.failed.push({ id, error: `File not found` });
+                     continue;
+                 }
+                 
+                 // Check ownership permission
+                 await filesPermissions.ensure({ owns: file.createdBy });
+                 
+                 // Remove specified tags
+                 const existingTags = Array.isArray(file.tags) ? file.tags : [];
+                 const updatedTags = existingTags.filter(tag => !tags.includes(tag));
+                 
+                 // Update file with filtered tags
+                 await this.updateFile(id, { tags: updatedTags });
+                 response.success.push(id);
+                 
+             } catch (error) {
+                 response.failed.push({ 
+                     id, 
+                     error: error.message || "Failed to remove tags" 
+                 });
+             }
+         }
+         
+         return response;
+     }
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   4. GraphQL Resolvers (packages/api-file-manager/src/graphql/filesSchema.ts)
+
+   Add resolvers to FmMutation:
+
+     FmMutation: {
+         // ... existing resolvers ...
+         
+         async bulkAddTags(_, args: { input: BulkTagInput }, context) {
+             return resolve(() => {
+                 return context.fileManager.bulkAddTags(args.input);
+             });
+         },
+         
+         async bulkRemoveTags(_, args: { input: BulkTagInput }, context) {
+             return resolve(() => {
+                 return context.fileManager.bulkRemoveTags(args.input);
+             });
+         }
+     }
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   5. Test GraphQL Operations (packages/api-file-manager/__tests__/graphql/file.ts)
+
+   Add test queries:
+
+     export const BULK_ADD_TAGS = /* GraphQL */ `
+         mutation BulkAddTags($input: FmBulkTagInput!) {
+             fileManager {
+                 bulkAddTags(input: $input) {
+                     data {
+                         success
+                         failed {
+                             id
+                             error
+                         }
+                     }
+                     error ${ERROR_FIELD}
+                 }
+             }
+         }
+     `;
+     
+     export const BULK_REMOVE_TAGS = /* GraphQL */ `
+         mutation BulkRemoveTags($input: FmBulkTagInput!) {
+             fileManager {
+                 bulkRemoveTags(input: $input) {
+                     data {
+                         success
+                         failed {
+                             id
+                             error
+                         }
+                     }
+                     error ${ERROR_FIELD}
+                 }
+             }
+         }
+     `;
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   6. Test Suite (packages/api-file-manager/__tests__/bulkTags.test.ts)
+
+   Create new test file:
+
+     import { describe, test, beforeAll, expect } from "vitest";
+     import { mdbid } from "@webiny/utils";
+     import useGqlHandler from "~tests/utils/useGqlHandler";
+     
+     describe("Bulk Tagging test", { timeout: 100_000 }, () => {
+         const { createFiles, bulkAddTags, bulkRemoveTags, getFile } = useGqlHandler();
+         
+         test("should add tags to multiple files", async () => {
+             // Create test files
+             // Call bulkAddTags mutation
+             // Verify tags were added to each file
+         });
+         
+         test("should remove tags from multiple files", async () => {
+             // Create test files with tags
+             // Call bulkRemoveTags mutation
+             // Verify tags were removed from each file
+         });
+         
+         test("should handle partial failures", async () => {
+             // Create some files
+             // Try to tag files including non-existent IDs
+             // Verify response contains both success and failed arrays
+         });
+         
+         test("should respect file ownership permissions", async () => {
+             // Test with files owned by different users
+             // Verify permission checks work correctly
+         });
+     });
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   Key Implementation Details
+
+   Security:
+
+     - Uses existing filesPermissions.ensure({ rwd: "w" }) for write permission
+     - Checks ownership via filesPermissions.ensure({ owns: file.createdBy })
+     - Maintains Webiny's existing security model
+
+   Error Handling:
+
+     - Returns partial success responses (some files may succeed while others fail)
+     - Includes specific error messages for each failed file
+     - Does not throw on partial failures (follows bulk operation best practices)
+
+   Performance Considerations:
+
+     - Processes files sequentially to maintain data consistency
+     - Each file update triggers existing lifecycle hooks (onFileBeforeUpdate, onFileAfterUpdate)
+     - Reuses existing updateFile method to maintain consistency
+
+   Compatibility:
+
+     - Follows existing Webiny patterns (same structure as createFiles, updateFile)
+     - Works with existing CMS storage operations
+     - No changes needed to storage layer (uses existing update operations)
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   Files to Modify
+
+     - packages/api-file-manager/src/types.ts - Add types
+     - packages/api-file-manager/src/graphql/createFilesTypeDefs.ts - Add GraphQL schema
+     - packages/api-file-manager/src/createFileManager/files.crud.ts - Add CRUD methods
+     - packages/api-file-manager/src/graphql/filesSchema.ts - Add resolvers
+     - packages/api-file-manager/__tests__/graphql/file.ts - Add test queries
+     - packages/api-file-manager/__tests__/bulkTags.test.ts - Create test file
+
+   ----------------------------------------------------------------------------------------------------------------
+
+   This plan provides a complete GraphQL API for bulk tagging that integrates seamlessly with Webiny's existing File
+   Manager architecture while maintaining security, error handling, and testing standards.

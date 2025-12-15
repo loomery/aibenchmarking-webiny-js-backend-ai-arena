@@ -162,6 +162,26 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             error: FmError
         }
 
+        input FmBulkTagInput {
+            ids: [ID!]!
+            tags: [String!]!
+        }
+
+        type FmBulkTagFailedItem {
+            id: ID!
+            error: String!
+        }
+
+        type FmBulkTagResponseData {
+            success: [ID!]!
+            failed: [FmBulkTagFailedItem!]!
+        }
+
+        type FmBulkTagResponse {
+            data: FmBulkTagResponseData
+            error: FmError
+        }
+
         extend type FmQuery {
             getFileModel: FmFileModelResponse!
             getFile(id: ID!): FmFileResponse!
@@ -180,6 +200,8 @@ export const createFilesTypeDefs = (params: CreateFilesTypeDefsParams): string =
             createFiles(data: [FmFileCreateInput!]!): FmCreateFilesResponse!
             updateFile(id: ID!, data: FmFileUpdateInput!): FmFileResponse!
             deleteFile(id: ID!): FmBooleanResponse!
+            bulkAddTags(input: FmBulkTagInput!): FmBulkTagResponse!
+            bulkRemoveTags(input: FmBulkTagInput!): FmBulkTagResponse!
         }
     `;
 };

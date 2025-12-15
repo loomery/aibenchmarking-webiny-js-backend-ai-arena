@@ -2,6 +2,8 @@ import { NotFoundError } from "@webiny/handler-graphql";
 import { createTopic } from "@webiny/pubsub";
 import WebinyError from "@webiny/error";
 import type {
+    BulkTagInput,
+    BulkTagResponse,
     File,
     FileManagerFilesStorageOperationsListParamsWhere,
     FileManagerFilesStorageOperationsTagsParamsWhere,
@@ -363,6 +365,82 @@ export const createFilesCrud = (
                     }
                 );
             }
+        },
+        async bulkAddTags(input: BulkTagInput): Promise<BulkTagResponse> {
+            await filesPermissions.ensure({ rwd: "w" });
+
+            const { ids, tags } = input;
+            const response: BulkTagResponse = { success: [], failed: [] };
+
+            for (const id of ids) {
+                try {
+                    const file = await storageOperations.files.get({
+                        where: {
+                            id,
+                            tenant: getTenantId(),
+                            locale: getLocaleCode()
+                        }
+                    });
+
+                    if (!file) {
+                        response.failed.push({ id, error: `File not found` });
+                        continue;
+                    }
+
+                    await filesPermissions.ensure({ owns: file.createdBy });
+
+                    const existingTags = Array.isArray(file.tags) ? file.tags : [];
+                    const newTags = [...new Set([...existingTags, ...tags])];
+
+                    await this.updateFile(id, { tags: newTags });
+                    response.success.push(id);
+                } catch (error) {
+                    response.failed.push({
+                        id,
+                        error: error.message || "Failed to add tags"
+                    });
+                }
+            }
+
+            return response;
+        },
+        async bulkRemoveTags(input: BulkTagInput): Promise<BulkTagResponse> {
+            await filesPermissions.ensure({ rwd: "w" });
+
+            const { ids, tags } = input;
+            const response: BulkTagResponse = { success: [], failed: [] };
+
+            for (const id of ids) {
+                try {
+                    const file = await storageOperations.files.get({
+                        where: {
+                            id,
+                            tenant: getTenantId(),
+                            locale: getLocaleCode()
+                        }
+                    });
+
+                    if (!file) {
+                        response.failed.push({ id, error: `File not found` });
+                        continue;
+                    }
+
+                    await filesPermissions.ensure({ owns: file.createdBy });
+
+                    const existingTags = Array.isArray(file.tags) ? file.tags : [];
+                    const updatedTags = existingTags.filter(tag => !tags.includes(tag));
+
+                    await this.updateFile(id, { tags: updatedTags });
+                    response.success.push(id);
+                } catch (error) {
+                    response.failed.push({
+                        id,
+                        error: error.message || "Failed to remove tags"
+                    });
+                }
+            }
+
+            return response;
         }
     };
 };

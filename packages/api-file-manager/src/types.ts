@@ -91,6 +91,22 @@ export interface ListTagsResponse {
     tag: string;
     count: number;
 }
+
+export interface BulkTagInput {
+    ids: string[];
+    tags: string[];
+}
+
+export interface BulkTagFailedItem {
+    id: string;
+    error: string;
+}
+
+export interface BulkTagResponse {
+    success: string[];
+    failed: BulkTagFailedItem[];
+}
+
 export interface FilesCRUD extends FileLifecycleEvents {
     getFile(id: string): Promise<File>;
     listFiles(opts?: FilesListOpts): Promise<[File[], FileListMeta]>;
@@ -99,6 +115,8 @@ export interface FilesCRUD extends FileLifecycleEvents {
     updateFile(id: string, data: Partial<FileInput>): Promise<File>;
     deleteFile(id: string): Promise<boolean>;
     createFilesInBatch(data: FileInput[], meta?: Record<string, any>): Promise<File[]>;
+    bulkAddTags(input: BulkTagInput): Promise<BulkTagResponse>;
+    bulkRemoveTags(input: BulkTagInput): Promise<BulkTagResponse>;
 }
 
 export interface FileManagerSettings {

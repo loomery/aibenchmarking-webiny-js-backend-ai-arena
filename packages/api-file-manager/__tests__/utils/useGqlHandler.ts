@@ -2,6 +2,8 @@ import { createHandler } from "@webiny/handler-aws";
 import type { APIGatewayEvent, LambdaContext } from "@webiny/handler-aws/types";
 import { until } from "@webiny/project-utils/testing/helpers/until";
 import {
+    BULK_ADD_TAGS,
+    BULK_REMOVE_TAGS,
     CREATE_FILE,
     CREATE_FILES,
     DELETE_FILE,
@@ -77,6 +79,12 @@ export default (params: HandlerParams = {}) => {
         },
         async listTags(variables = {}) {
             return invoke({ body: { query: LIST_TAGS, variables } });
+        },
+        async bulkAddTags(variables: Record<string, any>) {
+            return invoke({ body: { query: BULK_ADD_TAGS, variables } });
+        },
+        async bulkRemoveTags(variables: Record<string, any>) {
+            return invoke({ body: { query: BULK_REMOVE_TAGS, variables } });
         },
         // File Manager settings
         async getSettings(variables = {}) {

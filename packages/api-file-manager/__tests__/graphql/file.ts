@@ -125,3 +125,37 @@ export const LIST_TAGS = /* GraphQL */ `
         }
     }
 `;
+
+export const BULK_ADD_TAGS = /* GraphQL */ `
+    mutation BulkAddTags($input: FmBulkTagInput!) {
+        fileManager {
+            bulkAddTags(input: $input) {
+                data {
+                    success
+                    failed {
+                        id
+                        error
+                    }
+                }
+                error ${ERROR_FIELD}
+            }
+        }
+    }
+`;
+
+export const BULK_REMOVE_TAGS = /* GraphQL */ `
+    mutation BulkRemoveTags($input: FmBulkTagInput!) {
+        fileManager {
+            bulkRemoveTags(input: $input) {
+                data {
+                    success
+                    failed {
+                        id
+                        error
+                    }
+                }
+                error ${ERROR_FIELD}
+            }
+        }
+    }
+`;

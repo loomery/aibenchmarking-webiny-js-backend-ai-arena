@@ -82,6 +82,16 @@ export const createFilesSchema = (params: CreateFilesTypeDefsParams) => {
                             key: file.key
                         });
                     });
+                },
+                async bulkAddTags(_, args: any, context) {
+                    return resolve(() => {
+                        return context.fileManager.bulkAddTags(args.input);
+                    });
+                },
+                async bulkRemoveTags(_, args: any, context) {
+                    return resolve(() => {
+                        return context.fileManager.bulkRemoveTags(args.input);
+                    });
                 }
             }
         }
