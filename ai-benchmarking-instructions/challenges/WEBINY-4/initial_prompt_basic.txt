@@ -1,0 +1,2 @@
+Make a plan for a bulk tagging feature that allows users to add/remove tags to multiple files at once via the File Manager.
+Plan only the code required for the GraphQL API to serve this functionality - do not make any frontend changes.
