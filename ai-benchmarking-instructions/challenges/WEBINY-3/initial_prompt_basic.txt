@@ -1,0 +1,2 @@
+Analyse the code in /packages/api-mailer/src/crud/settings/password.ts for any issues with reliability, readability, maintainability or any other clean code
+   criteria. make a plan to refactor it
