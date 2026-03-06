@@ -39,6 +39,48 @@ import { OnRequestResponseSendPlugin } from "~/plugins/OnRequestResponseSendPlug
 import { Request } from "./abstractions/Request.js";
 import { Reply } from "./abstractions/Reply.js";
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+
+const createDefinedRoutes = (): DefinedContextRoutes => {
+    return {
+        POST: [],
+        GET: [],
+        OPTIONS: [],
+        DELETE: [],
+        PATCH: [],
+        PUT: [],
+        HEAD: [],
+        COPY: [],
+        LOCK: [],
+        MKCOL: [],
+        MOVE: [],
+        PROPFIND: [],
+        PROPPATCH: [],
+        SEARCH: [],
+        TRACE: [],
+        UNLOCK: [],
+        REPORT: [],
+        MKCALENDAR: []
+    };
+};
+
+const stringifyPublicError = (error: WebinyError | Error) => {
+    const value = error as WebinyError;
+    return JSON.stringify({
+        message: value.message,
+        code: value.code,
+        data: value.data
+    });
+};
+
+const sendErrorResponse = (
+    reply: Reply.Interface,
+    status: number,
+    error: WebinyError | Error
+): Reply.Interface => {
+    return reply.status(status).headers(NO_STORE_HEADERS).send(stringifyPublicError(error));
+};
+
 const modifyResponseHeaders = (
     app: FastifyInstance,
     request: Request.Interface,
@@ -70,25 +112,16 @@ export interface CreateHandlerParams {
 }
 
 export const createHandler = (params: CreateHandlerParams) => {
-    const definedRoutes: DefinedContextRoutes = {
-        POST: [],
-        GET: [],
-        OPTIONS: [],
-        DELETE: [],
-        PATCH: [],
-        PUT: [],
-        HEAD: [],
-        COPY: [],
-        LOCK: [],
-        MKCOL: [],
-        MOVE: [],
-        PROPFIND: [],
-        PROPPATCH: [],
-        SEARCH: [],
-        TRACE: [],
-        UNLOCK: [],
-        REPORT: [],
-        MKCALENDAR: []
+    const definedRoutes = createDefinedRoutes();
+
+    const hasRoute = (method: HTTPMethods, path: string): boolean => {
+        return definedRoutes[method].includes(path);
+    };
+
+    const hasRouteInAnyMethod = (path: string): HTTPMethods | undefined => {
+        return (Object.keys(definedRoutes) as HTTPMethods[]).find(method => {
+            return hasRoute(method, path);
+        });
     };
 
     const throwOnDefinedRoute = (
@@ -97,11 +130,7 @@ export const createHandler = (params: CreateHandlerParams) => {
         options?: RouteMethodOptions
     ): void => {
         if (type === "ALL") {
-            const all = Object.keys(definedRoutes).find(k => {
-                const key = k.toUpperCase() as HTTPMethods;
-                const routes = definedRoutes[key];
-                return routes.includes(path);
-            });
+            const all = hasRouteInAnyMethod(path);
             if (!all) {
                 return;
             }
@@ -117,7 +146,7 @@ export const createHandler = (params: CreateHandlerParams) => {
                     path
                 }
             );
-        } else if (definedRoutes[type].includes(path) === false) {
+        } else if (!hasRoute(type, path)) {
             return;
         } else if (options?.override === true) {
             return;
@@ -377,7 +406,7 @@ export const createHandler = (params: CreateHandlerParams) => {
         if (error.code?.startsWith("Authentication/")) {
             return reply
                 .status(401)
-                .headers({ "Cache-Control": "no-store" })
+                .headers(NO_STORE_HEADERS)
                 .send(
                     JSON.stringify({
                         message: error.message,
@@ -389,7 +418,7 @@ export const createHandler = (params: CreateHandlerParams) => {
         if (error.code === "Tenancy/TenantDisabled") {
             return reply
                 .status(503)
-                .headers({ "Cache-Control": "no-store" })
+                .headers(NO_STORE_HEADERS)
                 .send(
                     JSON.stringify({
                         message: error.message,
@@ -398,21 +427,7 @@ export const createHandler = (params: CreateHandlerParams) => {
                 );
         }
 
-        return reply
-            .status(500)
-            .headers({
-                "Cache-Control": "no-store"
-            })
-            .send(
-                /**
-                 * When we are sending the error in the response, we cannot send the whole error object, as it might contain some sensitive data.
-                 */
-                JSON.stringify({
-                    message: error.message,
-                    code: error.code,
-                    data: error.data
-                })
-            );
+        return sendErrorResponse(reply, 500, error);
     });
 
     app.addHook("onError", async (_, reply, error: any) => {
@@ -432,21 +447,7 @@ export const createHandler = (params: CreateHandlerParams) => {
          * IMPORTANT! Do not send anything if reply was already sent.
          */
         if (!reply.sent) {
-            reply
-                .status(500)
-                .headers({
-                    "Cache-Control": "no-store"
-                })
-                .send(
-                    /**
-                     * When we are sending the error in the response, we cannot send the whole error object, as it might contain some sensitive data.
-                     */
-                    JSON.stringify({
-                        message: error.message,
-                        code: error.code,
-                        data: error.data
-                    })
-                );
+            sendErrorResponse(reply, 500, error);
         } else {
             console.warn("Reply already sent, cannot send the result (handler:addHook:onError).");
         }
