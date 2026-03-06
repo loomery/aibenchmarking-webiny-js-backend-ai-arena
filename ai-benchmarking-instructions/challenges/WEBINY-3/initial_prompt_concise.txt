@@ -1,1 +1,1 @@
-
+Refactor the code in 'packages/handler/src/fastify.ts', paying particular attention to improvements that can be made in terms of: clean code, readability, maintainability, testability and performance.
