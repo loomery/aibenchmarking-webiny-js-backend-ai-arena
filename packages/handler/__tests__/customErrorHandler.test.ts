@@ -105,4 +105,64 @@ describe("custom error handler", () => {
             statusCode: 404
         });
     });
+
+    it("should keep auth and tenant errors sanitized with no-store caching policy", async () => {
+        const app = createHandler({
+            plugins: [
+                createRoute(({ onAll }) => {
+                    onAll("/auth-error", async () => {
+                        throw new WebinyError(
+                            "Not authenticated",
+                            "Authentication/NotAuthenticated",
+                            data
+                        );
+                    });
+
+                    onAll("/tenant-error", async () => {
+                        throw new WebinyError("Tenant disabled", "Tenancy/TenantDisabled", data);
+                    });
+                })
+            ]
+        });
+
+        const authResult = await app.inject({
+            path: "/auth-error",
+            headers: {
+                "content-type": "application/json"
+            },
+            method: "GET",
+            payload: "{}"
+        });
+
+        expect(authResult).toMatchObject({
+            statusCode: 401,
+            headers: {
+                "cache-control": "no-store"
+            }
+        });
+        expect(JSON.parse(authResult.payload)).toEqual({
+            message: "Not authenticated",
+            code: "Authentication/NotAuthenticated"
+        });
+
+        const tenantResult = await app.inject({
+            path: "/tenant-error",
+            headers: {
+                "content-type": "application/json"
+            },
+            method: "GET",
+            payload: "{}"
+        });
+
+        expect(tenantResult).toMatchObject({
+            statusCode: 503,
+            headers: {
+                "cache-control": "no-store"
+            }
+        });
+        expect(JSON.parse(tenantResult.payload)).toEqual({
+            message: "Tenant disabled",
+            code: "Tenancy/TenantDisabled"
+        });
+    });
 });
