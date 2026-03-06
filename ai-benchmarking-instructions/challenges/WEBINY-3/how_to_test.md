@@ -1,11 +1,16 @@
-File: /packages/api-mailer/src/crud/settings/password.ts
+Issues identified:
 
-   Issues with this file:
+     - Single Responsibility Violation: This 551-line file does too much - it handles route registration, plugin initialization, error 
+   handling, request lifecycle management, and context setup all in one function.
+     - Repetitive Code: The routes object (lines 198-232) has 8 nearly identical methods (onPost, onGet, onPatch, etc.) that could be 
+   generated dynamically.
+     - Deep Nesting & Complex Logic: The throwOnDefinedRoute function (lines 94-134) has complex conditional logic with multiple 
+   console.error calls that could be simplified.
+     - Error Handling Duplication: The setErrorHandler (lines 368-416) and onError hook (lines 418-464) have duplicated error response logic 
+   with hardcoded status codes and similar JSON response patterns.
+     - Magic Numbers: The file contains hardcoded values like 536870912 (line 150), 1024 (line 188), and 1024 * 1024 (line 270) without named
+    constants.
+     - Testability: The massive createHandler function is difficult to unit test due to its size and tight coupling with Fastify internals.
+     - Poor Maintainability: Adding new HTTP methods or error types requires modifying multiple locations in this file.
 
-     - Code duplication: The encrypt and decrypt functions have nearly identical error handling and validation logic
-     - Inconsistent error messages: The error message in encrypt (line 34) says "Cannot call decrypt" but should say "encrypt"
-     - Silent error handling: Using console.log for errors instead of proper error logging or throwing errors
-     - Empty catch blocks: Catching errors but not doing anything meaningful with them
-     - Unclear return behavior: Functions return empty string on errors without making this clear to callers
-     - Missing error information: When catching exceptions, the actual error is discarded (lines 25-27 and 41-43)
-     - Inconsistent null handling: The functions handle null and undefined values but don't document this behavior
+   This file would benefit from extracting smaller, focused modules for route helpers, error handlers, and hook configurations.
