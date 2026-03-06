@@ -1,0 +1,3 @@
+Add backend 'copy files' functionality to the File Manager component. 
+- Detailed Description: Implement everything required for the GraphQL API to be able to process a ‘CopyFiles’ request. It must handle multiple files, and allow copying to a different folder.
+- Constraints / Requirements: No frontend changes
