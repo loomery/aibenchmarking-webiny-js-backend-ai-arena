@@ -41,8 +41,8 @@ import { OnRequestResponseSendPlugin } from "~/plugins/OnRequestResponseSendPlug
 import { Request } from "./abstractions/Request.js";
 import { Reply } from "./abstractions/Reply.js";
 
-// All uppercase HTTP methods supported by Fastify.
-const HTTP_METHODS: HTTPMethods[] = [
+// Complete set of uppercase HTTP methods supported by Fastify.
+const ALL_HTTP_METHODS: HTTPMethods[] = [
     "POST",
     "GET",
     "OPTIONS",
@@ -66,7 +66,10 @@ const HTTP_METHODS: HTTPMethods[] = [
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
 const createDefinedRoutes = (): DefinedContextRoutes => {
-    return Object.fromEntries(HTTP_METHODS.map(method => [method, []])) as DefinedContextRoutes;
+    // Cast is safe because ALL_HTTP_METHODS contains every key of DefinedContextRoutes.
+    return Object.fromEntries(
+        ALL_HTTP_METHODS.map(method => [method, []])
+    ) as DefinedContextRoutes;
 };
 
 // Serializes only safe, non-sensitive error fields for HTTP responses.
@@ -186,6 +189,7 @@ const createRouteHelpers = (
         return (path, handler, options) => {
             throwOnDefinedRoute(definedRoutes, method, path, options);
             const fastifyMethod = method.toLowerCase() as Lowercase<HTTPMethods>;
+            // Cast needed because bracket access on FastifyInstance doesn't resolve overloads.
             (app[fastifyMethod] as typeof app.all)(path, handler);
         };
     };
