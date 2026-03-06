@@ -1,6 +1,6 @@
 import type { PluginCollection } from "@webiny/plugins/types.js";
 import { PluginsContainer } from "@webiny/plugins/types.js";
-import type { FastifyInstance, FastifyServerOptions as ServerOptions } from "fastify";
+import type { FastifyServerOptions as ServerOptions } from "fastify";
 import fastify from "fastify";
 import type { MiddlewareCallable } from "@webiny/utils";
 import { middleware } from "@webiny/utils";
@@ -39,28 +39,113 @@ import { OnRequestResponseSendPlugin } from "~/plugins/OnRequestResponseSendPlug
 import { Request } from "./abstractions/Request.js";
 import { Reply } from "./abstractions/Reply.js";
 
+/**
+ * Applies each ModifyResponseHeadersPlugin to the current reply headers.
+ * The 'set-cookie' header is excluded from the update to avoid duplication,
+ * since cookie management is handled separately by @fastify/cookie.
+ */
 const modifyResponseHeaders = (
-    app: FastifyInstance,
+    plugins: ModifyResponseHeadersPlugin[],
     request: Request.Interface,
     reply: Reply.Interface
 ) => {
-    const modifyHeaders = app.webiny.plugins.byType<ModifyResponseHeadersPlugin>(
-        ModifyResponseHeadersPlugin.type
-    );
-
     const replyHeaders = reply.getHeaders() as StandardHeaders;
     const headers = ResponseHeaders.create(replyHeaders);
 
-    modifyHeaders.forEach(plugin => {
+    plugins.forEach(plugin => {
         plugin.modify(request, headers);
     });
 
-    // Exclude 'set-cookie' header to avoid duplication.
-    // Cookies are managed by @fastify/cookie and calling reply.headers() with 'set-cookie' duplicates them.
+    // Exclude 'set-cookie' to avoid duplication — managed by @fastify/cookie.
     const headersToSet = headers.getHeaders();
     delete headersToSet["set-cookie"];
 
     reply.headers(headersToSet);
+};
+
+/**
+ * Serialises only the safe subset of an error for inclusion in HTTP responses,
+ * avoiding accidental leakage of sensitive internal details.
+ */
+const createErrorPayload = (error: { message?: string; code?: string; data?: any }): string => {
+    return JSON.stringify({ message: error.message, code: error.code, data: error.data });
+};
+
+/**
+ * Creates an empty DefinedContextRoutes map with all supported HTTP methods.
+ */
+export const createDefinedRoutes = (): DefinedContextRoutes => ({
+    POST: [],
+    GET: [],
+    OPTIONS: [],
+    DELETE: [],
+    PATCH: [],
+    PUT: [],
+    HEAD: [],
+    COPY: [],
+    LOCK: [],
+    MKCOL: [],
+    MOVE: [],
+    PROPFIND: [],
+    PROPPATCH: [],
+    SEARCH: [],
+    TRACE: [],
+    UNLOCK: [],
+    REPORT: [],
+    MKCALENDAR: []
+});
+
+/**
+ * Records a route path for a given HTTP method in the definedRoutes map.
+ * Duplicate registrations are silently ignored. Unknown methods (those not present
+ * in the DefinedContextRoutes map) are also silently ignored to stay resilient
+ * against custom or future HTTP method names that are not tracked by this system.
+ */
+export const addDefinedRoute = (
+    definedRoutes: DefinedContextRoutes,
+    input: HTTPMethods,
+    path: string
+): void => {
+    const type = input.toUpperCase() as HTTPMethods;
+    if (!definedRoutes[type] || definedRoutes[type].includes(path)) {
+        return;
+    }
+    definedRoutes[type].push(path);
+};
+
+/**
+ * Throws a WebinyError when a route is being registered that would silently override an
+ * existing one, unless the caller has explicitly opted in via options.override.
+ */
+export const throwOnDefinedRoute = (
+    definedRoutes: DefinedContextRoutes,
+    type: HTTPMethods | "ALL",
+    path: string,
+    options?: RouteMethodOptions
+): void => {
+    if (type === "ALL") {
+        const isAlreadyDefined = Object.values(definedRoutes).some(routes =>
+            routes.includes(path)
+        );
+        if (!isAlreadyDefined) {
+            return;
+        }
+        throw new WebinyError(
+            `You cannot override a route with onAll() method. The path "${path}" is already registered for method "${conflictingMethod}". Remove the existing route or register this path under that specific method instead.`,
+            "OVERRIDE_ROUTE_ERROR",
+            { type, path }
+        );
+    }
+
+    if (!definedRoutes[type].includes(path) || options?.override === true) {
+        return;
+    }
+
+    throw new WebinyError(
+        `The [${type}] ${path} route is already registered. To intentionally replace it, pass { override: true } in the options parameter.`,
+        "OVERRIDE_ROUTE_ERROR",
+        { type, path }
+    );
 };
 
 export interface CreateHandlerParams {
@@ -70,78 +155,7 @@ export interface CreateHandlerParams {
 }
 
 export const createHandler = (params: CreateHandlerParams) => {
-    const definedRoutes: DefinedContextRoutes = {
-        POST: [],
-        GET: [],
-        OPTIONS: [],
-        DELETE: [],
-        PATCH: [],
-        PUT: [],
-        HEAD: [],
-        COPY: [],
-        LOCK: [],
-        MKCOL: [],
-        MOVE: [],
-        PROPFIND: [],
-        PROPPATCH: [],
-        SEARCH: [],
-        TRACE: [],
-        UNLOCK: [],
-        REPORT: [],
-        MKCALENDAR: []
-    };
-
-    const throwOnDefinedRoute = (
-        type: HTTPMethods | "ALL",
-        path: string,
-        options?: RouteMethodOptions
-    ): void => {
-        if (type === "ALL") {
-            const all = Object.keys(definedRoutes).find(k => {
-                const key = k.toUpperCase() as HTTPMethods;
-                const routes = definedRoutes[key];
-                return routes.includes(path);
-            });
-            if (!all) {
-                return;
-            }
-            console.error(
-                `Error while registering onAll route. One of the routes is already defined.`
-            );
-            console.error(JSON.stringify(all));
-            throw new WebinyError(
-                `You cannot override a route with onAll() method, please remove unnecessary route from the system.`,
-                "OVERRIDE_ROUTE_ERROR",
-                {
-                    type,
-                    path
-                }
-            );
-        } else if (definedRoutes[type].includes(path) === false) {
-            return;
-        } else if (options?.override === true) {
-            return;
-        }
-        console.error(`Error while trying to override route: [${type}] ${path}`);
-        throw new WebinyError(
-            `When you are trying to override existing route, you must send "override" parameter when adding that route.`,
-            "OVERRIDE_ROUTE_ERROR",
-            {
-                type,
-                path
-            }
-        );
-    };
-
-    const addDefinedRoute = (input: HTTPMethods, path: string): void => {
-        const type = input.toUpperCase() as HTTPMethods;
-        if (!definedRoutes[type]) {
-            return;
-        } else if (definedRoutes[type].includes(path)) {
-            return;
-        }
-        definedRoutes[type].push(path);
-    };
+    const definedRoutes = createDefinedRoutes();
 
     /**
      * We must attach the server to our internal context if we want to have it accessible.
@@ -160,12 +174,13 @@ export const createHandler = (params: CreateHandlerParams) => {
         const method = route.method as HTTPMethods | HTTPMethods[];
         if (Array.isArray(method)) {
             for (const m of method) {
-                addDefinedRoute(m, route.path);
+                addDefinedRoute(definedRoutes, m, route.path);
             }
             return;
         }
-        addDefinedRoute(method, route.path);
+        addDefinedRoute(definedRoutes, method, route.path);
     });
+
     /**
      * ############################
      * Register the Fastify plugins.
@@ -192,45 +207,45 @@ export const createHandler = (params: CreateHandlerParams) => {
         },
         inflateIfDeflated: true
     });
+
     /**
      * Route helpers - mostly for users.
      */
     const routes: ContextRoutes = {
         defined: definedRoutes,
         onPost: (path, handler, options) => {
-            throwOnDefinedRoute("POST", path, options);
+            throwOnDefinedRoute(definedRoutes, "POST", path, options);
             app.post(path, handler);
         },
         onGet: (path, handler, options) => {
-            throwOnDefinedRoute("GET", path, options);
+            throwOnDefinedRoute(definedRoutes, "GET", path, options);
             app.get(path, handler);
         },
         onOptions: (path, handler, options) => {
-            throwOnDefinedRoute("OPTIONS", path, options);
+            throwOnDefinedRoute(definedRoutes, "OPTIONS", path, options);
             app.options(path, handler);
         },
         onDelete: (path, handler, options) => {
-            throwOnDefinedRoute("DELETE", path, options);
+            throwOnDefinedRoute(definedRoutes, "DELETE", path, options);
             app.delete(path, handler);
         },
         onPatch: (path, handler, options) => {
-            throwOnDefinedRoute("PATCH", path, options);
+            throwOnDefinedRoute(definedRoutes, "PATCH", path, options);
             app.patch(path, handler);
         },
         onPut: (path, handler, options) => {
-            throwOnDefinedRoute("PUT", path, options);
+            throwOnDefinedRoute(definedRoutes, "PUT", path, options);
             app.put(path, handler);
         },
         onAll: (path, handler, options) => {
-            throwOnDefinedRoute("ALL", path, options);
+            throwOnDefinedRoute(definedRoutes, "ALL", path, options);
             app.all(path, handler);
         },
         onHead: (path, handler, options) => {
-            throwOnDefinedRoute("HEAD", path, options);
+            throwOnDefinedRoute(definedRoutes, "HEAD", path, options);
             app.head(path, handler);
         }
     };
-    let context: Context;
 
     const plugins = new PluginsContainer([
         /**
@@ -241,6 +256,7 @@ export const createHandler = (params: CreateHandlerParams) => {
     ]);
     plugins.merge(params.plugins || []);
 
+    let context: Context;
     try {
         context = new Context({
             plugins,
@@ -296,60 +312,75 @@ export const createHandler = (params: CreateHandlerParams) => {
     });
 
     /**
-     * At this point, request body is properly parsed, and we can execute Webiny business logic.
+     * Cache plugin lookups once at initialisation time to avoid repeated byType() calls
+     * on every request (plugins are registered statically before any request is handled).
+     */
+    const handlerOnRequestPlugins = app.webiny.plugins.byType<HandlerOnRequestPlugin>(
+        HandlerOnRequestPlugin.type
+    );
+    const contextPlugins = app.webiny.plugins.byType<ContextPlugin>(ContextPlugin.type);
+    const beforeHandlerPlugins = app.webiny.plugins.byType<BeforeHandlerPlugin>(
+        BeforeHandlerPlugin.type
+    );
+    const modifyHeadersPlugins = app.webiny.plugins.byType<ModifyResponseHeadersPlugin>(
+        ModifyResponseHeadersPlugin.type
+    );
+    const handlerResultPlugins = app.webiny.plugins.byType<HandlerResultPlugin>(
+        HandlerResultPlugin.type
+    );
+    const handlerErrorPlugins = app.webiny.plugins.byType<HandlerErrorPlugin>(
+        HandlerErrorPlugin.type
+    );
+    const onSendPlugins = app.webiny.plugins.byType<OnRequestResponseSendPlugin>(
+        OnRequestResponseSendPlugin.type
+    );
+    const onTimeoutPlugins = app.webiny.plugins.byType<OnRequestTimeoutPlugin>(
+        OnRequestTimeoutPlugin.type
+    );
+
+    /**
+     * Build the pre-handler pipeline once to avoid rebuilding it on every request.
+     *
+     * At this point, request body is properly parsed, and we can execute Webiny business logic:
      * - set default headers
      * - process `HandlerOnRequestPlugin`
      * - if OPTIONS request, exit early
      * - process `ContextPlugin`
      * - process `BeforeHandlerPlugin`
      */
+    const preHandler = new PreHandler([
+        new SetDefaultHeaders(definedRoutes),
+        new ProcessHandlerOnRequestPlugins(handlerOnRequestPlugins),
+        new IfNotOptionsRequest([
+            new ProcessContextPlugins(app.webiny, contextPlugins),
+            new ProcessBeforeHandlerPlugins(app.webiny, beforeHandlerPlugins)
+        ]),
+        new IfOptionsRequest([new SendEarlyOptionsResponse(modifyHeadersPlugins)])
+    ]);
+
     app.addHook("preHandler", async (request, reply) => {
         app.webiny.request = request;
         app.webiny.reply = reply;
 
-        // Bind request and reply to DI container for runtime access
+        // Bind request and reply to DI container for runtime access.
         if (app.webiny.container) {
             app.webiny.container.registerInstance(Request, request);
             app.webiny.container.registerInstance(Reply, reply);
         }
+
         /**
          * Default code to 200 - so we do not need to set it again.
          * Usually we set errors manually when we use reply.send.
          */
         reply.code(200);
 
-        const handlerOnRequestPlugins = app.webiny.plugins.byType<HandlerOnRequestPlugin>(
-            HandlerOnRequestPlugin.type
-        );
-
-        const contextPlugins = app.webiny.plugins.byType<ContextPlugin>(ContextPlugin.type);
-
-        const beforeHandlerPlugins = app.webiny.plugins.byType<BeforeHandlerPlugin>(
-            BeforeHandlerPlugin.type
-        );
-
-        const modifyHeadersPlugins = app.webiny.plugins.byType<ModifyResponseHeadersPlugin>(
-            ModifyResponseHeadersPlugin.type
-        );
-
-        const preHandler = new PreHandler([
-            new SetDefaultHeaders(definedRoutes),
-            new ProcessHandlerOnRequestPlugins(handlerOnRequestPlugins),
-            new IfNotOptionsRequest([
-                new ProcessContextPlugins(app.webiny, contextPlugins),
-                new ProcessBeforeHandlerPlugins(app.webiny, beforeHandlerPlugins)
-            ]),
-            new IfOptionsRequest([new SendEarlyOptionsResponse(modifyHeadersPlugins)])
-        ]);
-
         await preHandler.execute(request, reply, app.webiny);
     });
 
     app.addHook("preSerialization", async (_, __, payload) => {
-        const plugins = app.webiny.plugins.byType<HandlerResultPlugin>(HandlerResultPlugin.type);
         let name: string | undefined;
         try {
-            for (const plugin of plugins) {
+            for (const plugin of handlerResultPlugins) {
                 name = plugin.name;
                 await plugin.handle(app.webiny, payload);
             }
@@ -374,49 +405,24 @@ export const createHandler = (params: CreateHandlerParams) => {
             return reply;
         }
 
+        let statusCode = 500;
         if (error.code?.startsWith("Authentication/")) {
-            return reply
-                .status(401)
-                .headers({ "Cache-Control": "no-store" })
-                .send(
-                    JSON.stringify({
-                        message: error.message,
-                        code: error.code
-                    })
-                );
+            statusCode = 401;
+        } else if (error.code === "Tenancy/TenantDisabled") {
+            statusCode = 503;
         }
 
-        if (error.code === "Tenancy/TenantDisabled") {
-            return reply
-                .status(503)
-                .headers({ "Cache-Control": "no-store" })
-                .send(
-                    JSON.stringify({
-                        message: error.message,
-                        code: error.code
-                    })
-                );
-        }
-
+        /**
+         * When we are sending the error in the response, we cannot send the whole error object,
+         * as it might contain some sensitive data.
+         */
         return reply
-            .status(500)
-            .headers({
-                "Cache-Control": "no-store"
-            })
-            .send(
-                /**
-                 * When we are sending the error in the response, we cannot send the whole error object, as it might contain some sensitive data.
-                 */
-                JSON.stringify({
-                    message: error.message,
-                    code: error.code,
-                    data: error.data
-                })
-            );
+            .status(statusCode)
+            .headers({ "Cache-Control": "no-store" })
+            .send(createErrorPayload(error));
     });
 
     app.addHook("onError", async (_, reply, error: any) => {
-        const plugins = app.webiny.plugins.byType<HandlerErrorPlugin>(HandlerErrorPlugin.type);
         /**
          * Log error to cloud, as these can be extremely annoying to debug!
          */
@@ -428,31 +434,23 @@ export const createHandler = (params: CreateHandlerParams) => {
             console.log(error);
             console.error("Stringify error:", ex);
         }
+
         /**
          * IMPORTANT! Do not send anything if reply was already sent.
+         * When we are sending the error in the response, we cannot send the whole error object,
+         * as it might contain some sensitive data.
          */
         if (!reply.sent) {
             reply
                 .status(500)
-                .headers({
-                    "Cache-Control": "no-store"
-                })
-                .send(
-                    /**
-                     * When we are sending the error in the response, we cannot send the whole error object, as it might contain some sensitive data.
-                     */
-                    JSON.stringify({
-                        message: error.message,
-                        code: error.code,
-                        data: error.data
-                    })
-                );
+                .headers({ "Cache-Control": "no-store" })
+                .send(createErrorPayload(error));
         } else {
             console.warn("Reply already sent, cannot send the result (handler:addHook:onError).");
         }
 
         const handler = middleware(
-            plugins.map(pl => {
+            handlerErrorPlugins.map(pl => {
                 return (context: Context, error: Error, next: MiddlewareCallable) => {
                     return pl.handle(context, error, next);
                 };
@@ -467,29 +465,23 @@ export const createHandler = (params: CreateHandlerParams) => {
      * Apply response headers modifier plugins.
      */
     app.addHook("onSend", async (request, reply, input) => {
-        modifyResponseHeaders(app, request, reply);
-        const plugins = app.webiny.plugins.byType<OnRequestResponseSendPlugin>(
-            OnRequestResponseSendPlugin.type
-        );
+        modifyResponseHeaders(modifyHeadersPlugins, request, reply);
         let payload = input;
-        for (const plugin of plugins) {
+        for (const plugin of onSendPlugins) {
             payload = await plugin.exec(request, reply, payload);
         }
         return payload;
     });
 
     /**
-     * We need to output the benchmark results at the end of the request in both response and timeout cases
+     * We need to output the benchmark results at the end of the request in both response and timeout cases.
      */
     app.addHook("onResponse", async () => {
         await context.benchmark.output();
     });
 
     app.addHook("onTimeout", async (request, reply) => {
-        const plugins = app.webiny.plugins.byType<OnRequestTimeoutPlugin>(
-            OnRequestTimeoutPlugin.type
-        );
-        for (const plugin of plugins) {
+        for (const plugin of onTimeoutPlugins) {
             await plugin.exec(request, reply);
         }
         await context.benchmark.output();
