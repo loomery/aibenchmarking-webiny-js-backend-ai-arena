@@ -64,19 +64,24 @@ const createDefinedRoutes = (): DefinedContextRoutes => {
     };
 };
 
-const stringifyPublicError = (error: WebinyError | Error) => {
-    const value = error as WebinyError;
+interface PublicErrorShape {
+    message: string;
+    code?: string;
+    data?: unknown;
+}
+
+const stringifyPublicError = (error: PublicErrorShape) => {
     return JSON.stringify({
-        message: value.message,
-        code: value.code,
-        data: value.data
+        message: error.message,
+        code: error.code,
+        data: error.data
     });
 };
 
 const sendErrorResponse = (
     reply: Reply.Interface,
     status: number,
-    error: WebinyError | Error
+    error: PublicErrorShape
 ): Reply.Interface => {
     return reply.status(status).headers(NO_STORE_HEADERS).send(stringifyPublicError(error));
 };

@@ -138,11 +138,11 @@ describe("custom error handler", () => {
             statusCode: 401,
             headers: {
                 "cache-control": "no-store"
-            },
-            payload: JSON.stringify({
-                message: "Not authenticated",
-                code: "Authentication/NotAuthenticated"
-            })
+            }
+        });
+        expect(JSON.parse(authResult.payload)).toEqual({
+            message: "Not authenticated",
+            code: "Authentication/NotAuthenticated"
         });
 
         const tenantResult = await app.inject({
@@ -158,11 +158,11 @@ describe("custom error handler", () => {
             statusCode: 503,
             headers: {
                 "cache-control": "no-store"
-            },
-            payload: JSON.stringify({
-                message: "Tenant disabled",
-                code: "Tenancy/TenantDisabled"
-            })
+            }
+        });
+        expect(JSON.parse(tenantResult.payload)).toEqual({
+            message: "Tenant disabled",
+            code: "Tenancy/TenantDisabled"
         });
     });
 });
