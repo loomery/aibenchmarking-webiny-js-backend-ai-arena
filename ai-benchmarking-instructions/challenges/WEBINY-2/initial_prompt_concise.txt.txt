@@ -1,0 +1,3 @@
+Add a basic commenting system for CMS entries to enable editorial discussions and feedback.
+- Detailed Description: Implement everything required for the GraphQL API to be able to create, edit and delete comments on a CMS entry. It should also support threaded comments and tagging of users.
+- Constraints / Requirements: No frontend changes
